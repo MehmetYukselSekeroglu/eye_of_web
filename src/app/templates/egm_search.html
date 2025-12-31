@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}EGM Arananlar Listesi Arama{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    .search-card {
+        border: none;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+    }
+    
+    .search-form .form-control, .search-form .form-select {
+        padding: 0.6rem 1rem;
+        border-radius: 0.25rem;
+    }
+    
+    .search-heading {
+        font-weight: 600;
+        color: #3a3a3a;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 1rem;
+    }
+    
+    .search-section {
+        margin-bottom: 1.5rem;
+    }
+    
+    .search-help-text {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .search-info {
+        background-color: #f8f9fa;
+        border-left: 4px solid #007bff;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">EGM Arananlar Listesi Arama</h2>
+    
+    <!-- Arama Formu -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Arama Kriterleri</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('web.egm_search') }}" class="search-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label for="face_name">İsim Arama:</label>
+                        <input type="text" name="face_name" id="face_name" class="form-control" 
+                            value="{{ request.form.face_name|e }}" placeholder="Aranan kişinin adını girin">
+                        <small class="form-text text-muted">Kişinin adının bir kısmını yazarak arama yapabilirsiniz.</small>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="organizer">Örgüt Tipi:</label>
+                        <select name="organizer" id="organizer" class="form-control">
+                            <option value="">Tümü</option>
+                            {% for org in organizer_types %}
+                            <option value="{{ org|e }}" {% if request.form.organizer == org %}selected{% endif %}>{{ org|e }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="organizer_level">Örgüt Seviyesi:</label>
+                        <select name="organizer_level" id="organizer_level" class="form-control">
+                            <option value="">Tümü</option>
+                            {% for level in organizer_levels %}
+                            <option value="{{ level|e }}" {% if request.form.organizer_level == level %}selected{% endif %}>{{ level|e }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="start_date">Başlangıç Tarihi:</label>
+                        <input type="date" name="start_date" id="start_date" class="form-control datepicker" 
+                            value="{{ request.form.start_date|e }}">
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="end_date">Bitiş Tarihi:</label>
+                        <input type="date" name="end_date" id="end_date" class="form-control datepicker" 
+                            value="{{ request.form.end_date|e }}">
+                    </div>
+                </div>
+                
+                <div class="text-center mt-3">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Ara</button>
+                    <button type="reset" class="btn btn-secondary ml-2"><i class="fas fa-undo"></i> Temizle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Görsel Arama Kartı -->
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">Görsel ile Arama</h5>
+        </div>
+        <div class="card-body text-center">
+            <p class="mb-3">Yüz görselini kullanarak EGM arananlar listesinde arama yapmak için:</p>
+            <a href="{{ url_for('web.egm_upload_search') }}" class="btn btn-danger">
+                <i class="fas fa-image me-1"></i> Görsel ile Ara
+            </a>
+        </div>
+    </div>
+    
+    <!-- Bilgi -->
+    <div class="search-info">
+        <h5><i class="fas fa-info-circle"></i> EGM Arananlar Listesi Hakkında</h5>
+        <p>Emniyet Genel Müdürlüğü (EGM) tarafından aranan kişilerin bilgilerini içerir. Bu veritabanında örgüt tipine, seviyesine ve kişi bilgilerine göre arama yapabilirsiniz.</p>
+        <p><strong>Not:</strong> Bu arama sonuçları Emniyet Genel Müdürlüğü'nün resmi veri tabanından alınmaktadır ve yalnızca yetkili kullanıcılar tarafından görüntülenebilir.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/tr.js"></script>
+<script>
+    // Tarih seçicileri için Flatpickr ayarları
+    flatpickr(".datepicker", {
+        dateFormat: "Y-m-d",
+        locale: "tr",
+        allowInput: true,
+        maxDate: "today"
+    });
+</script>
+{% endblock %} 

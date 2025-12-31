@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+
+{% block title %}Metin Arama Sonuçları{% endblock %}
+
+{% block styles %}
+<style>
+    .results-container {
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    
+    .search-info {
+        background-color: #f8f9fa;
+        padding: 15px 20px;
+        border-bottom: 1px solid #eaecef;
+    }
+    
+    .result-item {
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        transition: all 0.3s ease;
+    }
+    
+    .result-item:hover {
+        background-color: #f9f9f9;
+    }
+    
+    .result-item:last-child {
+        border-bottom: none;
+    }
+    
+    .result-image {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        border-radius: 5px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    }
+    
+    .result-title {
+        font-weight: 600;
+        margin-top: 15px;
+        margin-bottom: 5px;
+        font-size: 1.1rem;
+    }
+    
+    .result-meta {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 12px;
+    }
+    
+    .badge-risk {
+        font-size: 0.8rem;
+        padding: 5px 10px;
+        border-radius: 50px;
+    }
+    
+    .badge-risk-low {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .badge-risk-medium {
+        background-color: #ffc107;
+        color: #212529;
+    }
+    
+    .badge-risk-high {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .stats-row {
+        margin-bottom: 20px;
+    }
+    
+    .pagination {
+        justify-content: center;
+        margin-top: 30px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .action-buttons .btn {
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+    
+    .action-buttons .btn-outline-primary {
+        border-color: #007bff;
+    }
+    
+    .action-buttons .btn-outline-secondary {
+        border-color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="results-container">
+        <div class="search-info">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-0">
+                        <i class="fas fa-search me-2"></i> Arama Sonuçları
+                    </h2>
+                    <p class="text-muted mb-0 mt-2">
+                        <strong>"{{ params.search_text }}"</strong> için {{ results|length }} sonuç bulundu.
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <a href="{{ url_for('web.text_search') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i> Aramaya Dön
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="results-content">
+            {% if results %}
+                <div class="row p-4">
+                    {% for result in results %}
+                        <div class="col-md-4 mb-4">
+                            <div class="result-item h-100">
+                                <div class="position-relative">
+                                    {% if result.image_data %}
+                                        <img src="data:{{ result.image_mime_type | default('image/jpeg') }};base64,{{ result.image_data }}" alt="{{ result.image_title }}" class="result-image"
+                                             onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/placeholder.png') }}'; this.alt='Resim Yüklenemedi';">
+                                    {% elif result.image_url %}
+                                        <img src="{{ result.image_url }}" alt="{{ result.image_title }}" class="result-image">
+                                    {% elif result.use_default_image and result.image_error %}
+                                        <div class="result-image d-flex justify-content-center align-items-center bg-light flex-column">
+                                            <i class="fas fa-exclamation-triangle text-warning" style="font-size: 2rem;"></i>
+                                            <small class="text-muted mt-1 p-1">{{ result.image_error }}</small>
+                                        </div>
+                                    {% else %}
+                                        <div class="result-image d-flex justify-content-center align-items-center bg-light">
+                                            <i class="fas fa-image text-muted" style="font-size: 3rem;"></i>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if result.risk_level %}
+                                        {% set risk_class = 'badge-risk-low' if result.risk_level == 'düşük' else ('badge-risk-medium' if result.risk_level == 'orta' else 'badge-risk-high') %}
+                                        <span class="badge badge-risk {{ risk_class }} position-absolute" style="top: 10px; right: 10px;">
+                                            {{ result.risk_level }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                
+                                <h5 class="result-title">{{ result.image_title }}</h5>
+                                
+                                <div class="result-meta mb-2">
+                                    <i class="fas fa-globe me-1"></i> {{ result.domain }}
+                                    {% if result.detection_date %}
+                                        <br><i class="fas fa-calendar-alt me-1"></i> {{ result.detection_date.split('T')[0] }}
+                                    {% endif %}
+                                    {% if result.face_ids and result.face_ids|length > 0 %}
+                                        <br><i class="fas fa-user me-1"></i> {{ result.face_ids|length }} yüz tespit edildi
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="action-buttons mt-3">
+                                    {% if result.source_url %}
+                                        <a href="{{ result.source_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-external-link-alt me-1"></i> Kaynağa Git
+                                        </a>
+                                    {% endif %}
+                                    
+                                    {% if result.face_ids and result.face_ids|length > 0 %}
+                                        <a href="{{ url_for('web.face_details', face_id=result.face_ids[0]) }}" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-info-circle me-1"></i> Yüz Detayları
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center p-5">
+                    <div class="mb-4">
+                        <i class="fas fa-search" style="font-size: 4rem; color: #ced4da;"></i>
+                    </div>
+                    <h3>Sonuç Bulunamadı</h3>
+                    <p class="text-muted">
+                        Arama kriterlerinize uygun sonuç bulunamadı. Lütfen farklı anahtar kelimeler ile tekrar deneyin.
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

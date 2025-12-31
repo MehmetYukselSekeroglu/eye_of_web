@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Dış Yüz Deposu Arama Sonuçları{% endblock %}
+
+{% block styles %}
+<style>
+    .result-card {
+        border: none;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+    }
+    
+    .result-card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .face-image {
+        max-width: 100%;
+        height: 200px;
+        object-fit: cover;
+        border-radius: 6px;
+    }
+    
+    .filter-badge {
+        font-size: 0.85rem;
+        padding: 0.35rem 0.65rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .back-button {
+        margin-bottom: 1rem;
+    }
+    
+    .card-header-alarm {
+        background-color: #ffcccc !important;
+    }
+    
+    .alarm-badge {
+        font-size: 0.8rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: 1rem;
+        margin-left: 0.5rem;
+    }
+    
+    .card-header-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="mb-3">
+        <a href="{{ url_for('web.external_search') }}" class="btn btn-secondary back-button">
+            <i class="fas fa-arrow-left"></i> Aramaya Dön
+        </a>
+    </div>
+    
+    <h2 class="mb-4">Dış Yüz Deposu Arama Sonuçları</h2>
+    
+    <!-- Arama Filtreleri -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Arama Filtreleri</h5>
+        </div>
+        <div class="card-body">
+            <div class="filter-badges">
+                {% if params.face_name %}
+                <span class="badge bg-info filter-badge">Yüz Adı: {{ params.face_name }}</span>
+                {% endif %}
+                
+                {% if params.alarm is not none %}
+                <span class="badge bg-info filter-badge">Alarm Durumu: {{ "Alarmlı" if params.alarm else "Alarmsız" }}</span>
+                {% endif %}
+                
+                {% if params.start_date %}
+                <span class="badge bg-info filter-badge">Başlangıç Tarihi: {{ params.start_date }}</span>
+                {% endif %}
+                
+                {% if params.end_date %}
+                <span class="badge bg-info filter-badge">Bitiş Tarihi: {{ params.end_date }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sonuç Sayısı -->
+    <div class="alert alert-info">
+        <h5><i class="fas fa-info-circle"></i> Sonuç Bilgisi</h5>
+        <p>{{ results|length }} adet sonuç bulundu.</p>
+    </div>
+    
+    <!-- Sonuçlar -->
+    <div class="row">
+        {% for face in results %}
+        <div class="col-md-4 mb-4">
+            <div class="card result-card h-100">
+                <div class="card-header {% if face.alarm %}card-header-alarm{% else %}bg-light{% endif %}">
+                    <div class="card-header-title">
+                        <h5 class="mb-0">{{ face.face_name }}</h5>
+                        {% if face.alarm %}
+                        <span class="badge bg-danger alarm-badge">Alarm</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body text-center">
+                    {% if face.image_data %}
+                    <img src="data:image/jpeg;base64,{{ face.image_data }}" class="face-image mb-3" alt="{{ face.face_name }}">
+                    {% else %}
+                    <div class="alert alert-warning mb-3">Resim bulunamadı</div>
+                    {% endif %}
+                    
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>ID:</span>
+                            <span class="text-primary">{{ face.id }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Açıklama:</span>
+                            <span class="text-truncate" style="max-width: 200px;" title="{{ face.face_description }}">
+                                {{ face.face_description or 'Belirtilmemiş' }}
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Cinsiyet:</span>
+                            <span>{{ 'Erkek' if face.gender else 'Kadın' }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Yaş:</span>
+                            <span>{{ face.age or 'Bilinmiyor' }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Tespit Skoru:</span>
+                            <span>{{ "%.2f"|format(face.detection_score) }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Ekleme Tarihi:</span>
+                            <span>{{ face.detection_date.split('T')[0] if face.detection_date else 'Bilinmiyor' }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    {% if not results %}
+    <div class="alert alert-warning">
+        <h5>Sonuç Bulunamadı</h5>
+        <p>Arama kriterlerinize uygun sonuç bulunamadı. Lütfen farklı kriterler deneyiniz.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

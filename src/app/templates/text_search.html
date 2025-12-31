@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}Metin Tabanlı Arama{% endblock %}
+
+{% block styles %}
+<style>
+    .search-container {
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        padding: 30px;
+        margin-bottom: 30px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: block;
+    }
+    
+    .form-control {
+        border-radius: 5px;
+        padding: 10px 15px;
+        border: 1px solid #ced4da;
+    }
+    
+    .btn-search {
+        background-color: #2e58ff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-weight: 600;
+        width: 100%;
+    }
+    
+    .btn-search:hover {
+        background-color: #1e40af;
+    }
+    
+    .card-header {
+        background-color: #f8f9fa;
+        padding: 15px 20px;
+        border-bottom: 1px solid #eaecef;
+    }
+    
+    .additional-params {
+        padding-top: 10px;
+        border-top: 1px solid #eee;
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card search-container">
+                <div class="card-header">
+                    <h2 class="mb-0">
+                        <i class="fas fa-search me-2"></i> Metin Tabanlı Arama
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Görsel başlıklarında Türkçe kelime veya cümle araması yapın. Sistem otomatik olarak 
+                        Türkçe metinlerde arama yapar.
+                    </p>
+                    
+                    <form method="post" action="{{ url_for('web.text_search') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="form-group">
+                            <label for="search_text" class="form-label">Arama Metni:</label>
+                            <input type="text" id="search_text" name="search_text" class="form-control" 
+                                   placeholder="Aramak istediğiniz kelime veya cümleyi girin" required>
+                            <small class="form-text text-muted">
+                                Türkçe arama yapabilirsiniz, sistem Türkçe karakterleri destekler.
+                            </small>
+                        </div>
+                        
+                        <div class="additional-params">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="start_date" class="form-label">Başlangıç Tarihi:</label>
+                                        <input type="date" id="start_date" name="start_date" class="form-control">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="end_date" class="form-label">Bitiş Tarihi:</label>
+                                        <input type="date" id="end_date" name="end_date" class="form-control">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="category" class="form-label">Kategori:</label>
+                                <select id="category" name="category" class="form-control">
+                                    <option value="">Tüm Kategoriler</option>
+                                    {% for category in categories %}
+                                    <option value="{{ category }}">{{ category }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-search">
+                                <i class="fas fa-search me-2"></i> Ara
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

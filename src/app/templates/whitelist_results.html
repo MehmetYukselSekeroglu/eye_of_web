@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block title %}Beyaz Liste Arama Sonuçları{% endblock %}
+
+{% block styles %}
+<style>
+    .result-card {
+        border: none;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+    }
+    
+    .result-card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .face-image {
+        max-width: 100%;
+        height: 200px;
+        object-fit: cover;
+        border-radius: 6px;
+    }
+    
+    .filter-badge {
+        font-size: 0.85rem;
+        padding: 0.35rem 0.65rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .back-button {
+        margin-bottom: 1rem;
+    }
+    
+    .card-header-whitelist {
+        background-color: #d4edda !important;
+        color: #155724;
+    }
+    
+    .whitelist-badge {
+        font-size: 0.8rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: 1rem;
+        margin-right: 0.5rem;
+    }
+    
+    .verify-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(40, 167, 69, 0.85);
+        color: white;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+    
+    .img-container {
+        position: relative;
+    }
+    
+    /* Modal içindeki açıklama alanı için stil */
+    .modal-body td[style="white-space: pre-wrap;"] {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="mb-3">
+        <a href="{{ url_for('web.whitelist_search') }}" class="btn btn-secondary back-button">
+            <i class="fas fa-arrow-left"></i> Aramaya Dön
+        </a>
+    </div>
+    
+    <h2 class="mb-4">Beyaz Liste Arama Sonuçları</h2>
+    
+    <!-- Arama Filtreleri -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Arama Filtreleri</h5>
+        </div>
+        <div class="card-body">
+            <!-- Eğer sorgu görseli varsa göster -->
+            {% if query_face_image %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="card border-success">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">Aranan Yüz</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="position-relative img-container">
+                                        <img src="data:image/jpeg;base64,{{ query_face_image }}" class="img-fluid rounded face-image" alt="Aranan Yüz">
+                                    </div>
+                                </div>
+                                <div class="col-md-8">
+                                    <h5>Arama Kriterleri</h5>
+                                    <p>Bu yüze benzer beyaz liste sonuçları arama kriterleriniz:</p>
+                                    <ul>
+                                        <li>Benzerlik Eşiği: {{ "%.0f"|format(params.threshold * 100) }}%</li>
+                                        <li>Bulunan Toplam Sonuç: {{ results|length }}</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="filter-badges">
+                {% if params.face_name %}
+                <span class="badge bg-info filter-badge">İsim: {{ params.face_name }}</span>
+                {% endif %}
+                
+                {% if params.institution %}
+                <span class="badge bg-info filter-badge">Kurum: {{ params.institution }}</span>
+                {% endif %}
+                
+                {% if params.category %}
+                <span class="badge bg-info filter-badge">Kategori: {{ params.category }}</span>
+                {% endif %}
+                
+                {% if params.start_date %}
+                <span class="badge bg-info filter-badge">Başlangıç Tarihi: {{ params.start_date }}</span>
+                {% endif %}
+                
+                {% if params.end_date %}
+                <span class="badge bg-info filter-badge">Bitiş Tarihi: {{ params.end_date }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sonuç Sayısı -->
+    <div class="alert alert-info">
+        <h5><i class="fas fa-info-circle"></i> Sonuç Bilgisi</h5>
+        <p>{{ results|length }} adet sonuç bulundu.</p>
+    </div>
+    
+    <!-- Sonuçlar -->
+    <div class="row">
+        {% for face in results %}
+        <div class="col-md-4 mb-4">
+            <div class="card result-card h-100">
+                <div class="card-header card-header-whitelist">
+                    <h5 class="mb-0">{{ face.face_name }}</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="position-relative img-container">
+                        <img src="data:image/jpeg;base64,{{ face.image_data }}" class="img-fluid rounded face-image" alt="{{ face.face_name }}">
+                        
+                        <!-- Detection Score -->
+                        {% if face.detection_score %}
+                        <div class="position-absolute top-0 end-0 m-2">
+                            <span class="badge bg-info">
+                                Tespit: {{ "%.1f"|format(face.detection_score * 100) }}%
+                            </span>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Similarity Score (eğer benzerlik araması yapıldıysa) -->
+                        {% if face.similarity %}
+                        <div class="position-absolute top-0 start-0 m-2">
+                            <span class="badge bg-success">
+                                Benzerlik: {{ "%.1f"|format(face.similarity * 100) }}%
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <span class="badge bg-success whitelist-badge">{{ face.institution or 'Belirtilmemiş' }}</span>
+                        <span class="badge bg-info whitelist-badge">{{ face.category or 'Belirtilmemiş' }}</span>
+                    </div>
+                    
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>ID:</span>
+                            <span class="text-primary">{{ face.id }}</span>
+                        </li>
+                        {% if face.similarity is defined %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Benzerlik Oranı:</span>
+                            <span class="text-primary">{{ "%.2f"|format(face.similarity * 100) }}%</span>
+                        </li>
+                        {% endif %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Cinsiyet:</span>
+                            <span>{{ 'Erkek' if face.gender else 'Kadın' }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Yaş:</span>
+                            <span>{{ face.age or 'Bilinmiyor' }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Sisteme Giriş:</span>
+                            <span>{{ face.detection_date.split('T')[0] if face.detection_date else 'Bilinmiyor' }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Açıklama:</span>
+                            <span class="text-truncate" style="max-width: 200px;" title="{{ face.face_description|e }}">
+                                {{ face.face_description|e or 'Açıklama yok' }}
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#detailModal{{ face.id }}">
+                            <i class="fas fa-info-circle"></i> Detayları Görüntüle
+                        </button>
+                        <a href="{{ url_for('web.whitelist_search_by_face', face_id=face.id) }}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-search"></i> Benzerleri Ara
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    {% if not results %}
+    <div class="alert alert-warning">
+        <h5>Sonuç Bulunamadı</h5>
+        <p>Arama kriterlerinize uygun sonuç bulunamadı. Lütfen farklı kriterler deneyiniz.</p>
+    </div>
+    {% endif %}
+    
+    <!-- Detay Modalları -->
+    {% for face in results %}
+    <div class="modal fade" id="detailModal{{ face.id }}" tabindex="-1" aria-labelledby="detailModalLabel{{ face.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="detailModalLabel{{ face.id }}">{{ face.face_name }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-5 text-center">
+                            <div class="position-relative img-container mb-3">
+                                <img src="data:image/jpeg;base64,{{ face.image_data }}" class="img-fluid rounded" alt="{{ face.face_name }}">
+                                
+                                <!-- Detection Score -->
+                                {% if face.detection_score %}
+                                <div class="position-absolute top-0 end-0 m-2">
+                                    <span class="badge bg-info">
+                                        Tespit: {{ "%.1f"|format(face.detection_score * 100) }}%
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mt-2">
+                                <span class="badge bg-success whitelist-badge">{{ face.institution or 'Belirtilmemiş' }}</span>
+                                <span class="badge bg-info whitelist-badge">{{ face.category or 'Belirtilmemiş' }}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-7">
+                            <h5 class="mb-3">Detaylı Bilgiler</h5>
+                            <table class="table table-striped">
+                                <tbody>
+                                    <tr>
+                                        <th style="width: 40%">ID:</th>
+                                        <td>{{ face.id }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Cinsiyet:</th>
+                                        <td>{{ 'Erkek' if face.gender else 'Kadın' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Yaş:</th>
+                                        <td>{{ face.age or 'Belirtilmemiş' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Sisteme Giriş:</th>
+                                        <td>{{ face.detection_date.split('T')[0] if face.detection_date else 'Belirtilmemiş' }}</td>
+                                    </tr>
+                                    {% if face.similarity is defined %}
+                                    <tr>
+                                        <th>Benzerlik Oranı:</th>
+                                        <td>{{ "%.2f"|format(face.similarity * 100) }}%</td>
+                                    </tr>
+                                    {% endif %}
+                                    <tr>
+                                        <th>Açıklama:</th>
+                                        <td style="white-space: pre-wrap;">{{ face.face_description|e or 'Açıklama yok' }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                    <a href="{{ url_for('web.whitelist_search_by_face', face_id=face.id) }}" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Benzerleri Ara
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Detay modalları için kapanma kontrolü
+        var modalButtons = document.querySelectorAll('[data-bs-toggle="modal"]');
+        modalButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                var targetModalId = this.getAttribute('data-bs-target');
+                var targetModal = document.querySelector(targetModalId);
+                if (targetModal) {
+                    var modal = new bootstrap.Modal(targetModal);
+                    modal.show();
+                }
+            });
+        });
+        
+        // İlk yükleme sırasında modal içindeki açıklama kutularını ayarla
+        var modalElements = document.querySelectorAll('.modal');
+        modalElements.forEach(function(modalElement) {
+            modalElement.addEventListener('shown.bs.modal', function() {
+                // Açıklama içeriğinin yüksekliğini ayarla
+                var descriptionCells = this.querySelectorAll('td[style="white-space: pre-wrap;"]');
+                descriptionCells.forEach(function(cell) {
+                    if (cell.scrollHeight > 200) {
+                        cell.style.maxHeight = '200px';
+                        cell.style.overflowY = 'auto';
+                    }
+                });
+            });
+        });
+    });
+</script>
+{% endblock %} 

@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Benzer Yüz Arama Sonuçları - Beyaz Liste{% endblock %}
+
+{% block styles %}
+<style>
+    .result-card {
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.05);
+    }
+    
+    .result-card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .face-image {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 6px;
+    }
+    
+    .similarity-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    
+    .original-face-card {
+        background-color: #f8f9fa;
+        border-left: 4px solid #28a745;
+    }
+    
+    .whitelist-badge {
+        font-size: 0.8rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: 1rem;
+    }
+    
+    .verify-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background-color: rgba(40, 167, 69, 0.85);
+        color: white;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+    
+    .img-container {
+        position: relative;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('web.index') }}">Ana Sayfa</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('web.whitelist_search') }}">Beyaz Liste Arama</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Benzer Yüzler</li>
+        </ol>
+    </nav>
+    
+    <h2 class="mb-4">Benzer Yüz Arama Sonuçları</h2>
+    
+    <!-- Orijinal Yüz Bilgileri -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-id-card me-2"></i> Aranan Yüz Detayları
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="position-relative img-container">
+                        <img src="data:image/jpeg;base64,{{ original_face.image_data }}" alt="Aranan Yüz" class="img-fluid rounded face-image">
+                        <canvas class="landmark-canvas position-absolute top-0 start-0" style="display:none;" width="100%" height="100%"></canvas>
+                        
+                        <!-- Detection Score -->
+                        {% if original_face.detection_score %}
+                        <div class="position-absolute top-0 end-0 m-2">
+                            <span class="badge bg-info">
+                                Tespit: {{ "%.1f"|format(original_face.detection_score * 100) }}%
+                            </span>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Landmark Button - İçeriye taşındı -->
+                        <div class="position-absolute bottom-0 start-50 translate-middle-x mb-2">
+                            <button class="btn btn-sm btn-outline-success toggle-landmarks-btn" 
+                                    data-face-id="{{ original_face.id }}" 
+                                    data-source="original">
+                                ⚪ Landmark Göster
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <table class="table table-striped">
+                        <tbody>
+                            <tr>
+                                <th>ID:</th>
+                                <td>{{ original_face.id }}</td>
+                            </tr>
+                            <tr>
+                                <th>İsim:</th>
+                                <td>{{ original_face.face_name }}</td>
+                            </tr>
+                            {% if original_face.institution %}
+                            <tr>
+                                <th>Kurum:</th>
+                                <td><span class="badge bg-success whitelist-badge">{{ original_face.institution }}</span></td>
+                            </tr>
+                            {% endif %}
+                            {% if original_face.category %}
+                            <tr>
+                                <th>Kategori:</th>
+                                <td><span class="badge bg-info whitelist-badge">{{ original_face.category }}</span></td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                    <div>
+                        <p><strong>Benzerlik Eşiği:</strong> {{ "%.0f"|format(threshold * 100) }}%</p>
+                        <p><strong>Bulunan Sonuç Sayısı:</strong> {{ results|length }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sonuçlar -->
+    {% if results and results|length > 0 %}
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Benzer Yüzler ({{ results|length }} sonuç)</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for face in results %}
+                <div class="col-md-4 mb-4">
+                    <div class="card result-card h-100">
+                        <div class="img-container">
+                            {% if face.image_data %}
+                            <div class="position-relative img-container">
+                                <img src="data:image/jpeg;base64,{{ face.image_data }}" class="img-fluid rounded face-image" alt="{{ face.face_name }}">
+                                
+                                <!-- Detection Score -->
+                                {% if face.detection_score %}
+                                <div class="position-absolute top-0 end-0 m-2">
+                                    <span class="badge bg-info">
+                                        Tespit: {{ "%.1f"|format(face.detection_score * 100) }}%
+                                    </span>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Similarity Score (eğer benzerlik araması yapıldıysa) -->
+                                {% if face.similarity %}
+                                <div class="position-absolute top-0 start-0 m-2">
+                                    <span class="badge bg-success">
+                                        Benzerlik: {{ "%.1f"|format(face.similarity * 100) }}%
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% elif face.image_url %}
+                            <a href="{{ face.image_url }}" target="_blank">
+                                <img src="{{ face.image_url }}" class="face-image" alt="Yüz" onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/profile-placeholder.png') }}';">
+                            </a>
+                            <div class="similarity-badge badge bg-success">
+                                {{ "%.1f"|format(face.similarity*100) }}% Benzerlik
+                            </div>
+                            {% else %}
+                            <img src="{{ url_for('static', filename='img/profile-placeholder.png') }}" alt="Görsel Mevcut Değil" class="face-image">
+                            <div class="similarity-badge badge bg-success">
+                                {{ "%.1f"|format(face.similarity*100) }}% Benzerlik
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">ID: {{ face.id }}</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Cinsiyet:</span>
+                                    <span>{{ "Erkek" if face.gender else "Kadın" }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Yaş:</span>
+                                    <span>{{ face.age }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Alan Adı:</span>
+                                    <span class="text-truncate" style="max-width: 150px;" title="{{ face.domain }}">{{ face.domain }}</span>
+                                </li>
+                                {% if face.risk_level %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Risk Seviyesi:</span>
+                                    <span class="badge {% if face.risk_level == 'yüksek' %}bg-danger{% elif face.risk_level == 'orta' %}bg-warning{% else %}bg-info{% endif %}">
+                                        {{ face.risk_level }}
+                                    </span>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        <div class="card-footer text-center">
+                            <a href="{{ url_for('web.face_details', face_id=face.id) }}" class="btn btn-sm btn-primary">Detaylar</a>
+                            
+                            {% if face.source_url %}
+                            <a href="{{ face.source_url }}" target="_blank" class="btn btn-sm btn-secondary mt-2">
+                                <i class="fas fa-external-link-alt"></i> Kaynağı Ziyaret Et
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <h5><i class="fas fa-info-circle"></i> Sonuç Bulunamadı</h5>
+        <p>Benzer yüz bulunamadı. Daha düşük bir eşik değeri ile tekrar deneyebilirsiniz.</p>
+    </div>
+    {% endif %}
+    
+    <div class="my-4 text-center">
+        <a href="{{ url_for('web.whitelist_search') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Beyaz Liste Aramaya Dön
+        </a>
+    </div>
+</div>
+{% endblock %} 

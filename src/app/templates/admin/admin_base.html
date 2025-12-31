@@ -1,0 +1,124 @@
+{% extends "base.html" %} {# Ana base.html'den miras al #}
+
+{% block title %}Admin Paneli - {{ env_config.APP_NAME }}{% endblock %}
+
+{% block styles %}
+    {{ super() }} {# Ana base.html'deki stilleri dahil et #}
+    <link href="{{ url_for('static', filename='css/admin_panel_styles.css') }}" rel="stylesheet">
+    <style>
+        /* Admin sidebar ve content wrapper stilleri */
+        .admin-sidebar {
+            width: 250px;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            padding-top: 56px; /* Navbar yüksekliği varsayımı */
+            background-color: #343a40;
+            color: #fff;
+            z-index: 1000; 
+        }
+        .admin-sidebar a {
+            padding: 10px 15px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            color: #adb5bd;
+            display: block;
+            transition: 0.2s;
+        }
+        .admin-sidebar a:hover, .admin-sidebar a.active {
+            color: #fff;
+            background-color: #495057;
+        }
+        .admin-content-wrapper {
+            margin-left: 250px; /* Sidebar genişliği kadar margin */
+            padding: 20px;
+            padding-top: 76px; /* Navbar yüksekliği + boşluk varsayımı */
+        }
+         /* Admin navbar'ın sola yaslanmasını önle */
+        .admin-navbar {
+             margin-left: 250px; /* Sidebar genişliği kadar margin */
+             z-index: 1020;
+        }
+        /* base.html'in main padding'ini override etmemiz gerekebilir */
+        main.flex-grow-1 {
+            padding-top: 0 !important; /* Admin navbar padding'i devralacak */
+            padding-bottom: 0 !important;
+        }
+    </style>
+{% endblock %}
+
+{# body_content yerine base.html'deki ana content bloğunu override et (adı 'content' varsayıldı) #}
+{% block content %}
+    <!-- Üst Navbar (Admin Paneli için) -->
+    {# Not: base.html zaten bir navbar içeriyorsa, admin için ayrı bir navbar mı gösterilecek? #}
+    {# Şimdilik admin için ayrı bir navbar varsayıyoruz. #}
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top admin-navbar">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('admin.dashboard') }}">{{ env_config.APP_NAME }} - Admin</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbarResponsive" aria-controls="adminNavbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="adminNavbarResponsive">
+                <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web.index') }}" target="_blank"><i class="fas fa-home me-1"></i> Siteyi Görüntüle</a>
+                    </li>
+                    {% if session.logged_in %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownUserLink" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user me-1"></i> {{ session.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdownUserLink">
+                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Çıkış Yap</a></li>
+                            </ul>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Sol Sidebar -->
+    <div class="admin-sidebar">
+        <div class="pt-3">
+            <a href="{{ url_for('admin.dashboard') }}" class="nav-link {{ 'active' if request.endpoint == 'admin.dashboard' else '' }}">
+                <i class="fas fa-tachometer-alt me-2"></i> Kontrol Paneli
+            </a>
+            <a href="{{ url_for('admin.list_users') }}" class="nav-link {{ 'active' if request.endpoint == 'admin.list_users' or request.endpoint == 'admin.add_user' or request.endpoint == 'admin.edit_user' else '' }}">
+                <i class="fas fa-users me-2"></i> Kullanıcı Yönetimi
+            </a>
+            <a href="{{ url_for('admin.list_user_subscriptions') }}" class="nav-link {{ 'active' if request.endpoint == 'admin.list_user_subscriptions' else '' }}">
+                <i class="fas fa-id-card-alt me-2"></i> Kullanıcı Abonelikleri
+            </a>
+            <!-- Diğer admin menüleri -->
+        </div>
+    </div>
+
+    <!-- Ana İçerik Alanı -->
+    <div class="admin-content-wrapper">
+        {# Flash mesajları buraya taşıyalım #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {# Alt şablonların dolduracağı blok #}
+        {% block admin_content %}
+        {% endblock admin_content %}
+    </div>
+
+{% endblock content %} {# Ana içerik bloğunu kapat #}
+
+{# body_content bloğunu burada override etme #}
+
+{% block scripts %}
+    {{ super() }} {# Ana base.html'deki scriptleri dahil et #}
+    <!-- Admin paneline özel ek JS dosyaları buraya eklenebilir -->
+{% endblock %} 

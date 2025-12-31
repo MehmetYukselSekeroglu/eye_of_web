@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+
+{% block title %}Yüz Benzerlik Analizi{% endblock %}
+
+{% block styles %}
+<style>
+  /* Layout */
+  .container {
+    max-width: 1400px;
+    padding: 2rem;
+  }
+
+  .section {
+    margin-bottom: 3rem;
+  }
+
+  /* Cards */
+  .card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    border: 1px solid #e5e9f2;
+    margin-bottom: 1.5rem;
+  }
+
+  .card-header {
+    padding: 1rem 1.5rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e9f2;
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  /* Stats Grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: #fff;
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+    transition: transform 0.2s;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-4px);
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #2c5282;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-label {
+    color: #4a5568;
+    font-size: 0.875rem;
+  }
+
+  /* Face Cards Grid */
+  .faces-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .face-card {
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .face-image {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+  }
+
+  .face-details {
+    padding: 1rem;
+  }
+
+  /* Target Face Section */
+  .target-face {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 2rem;
+    margin-bottom: 3rem;
+  }
+
+  @media (max-width: 768px) {
+    .target-face {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Badges & Labels */
+  .badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .risk-high {
+    background: #fc8181;
+    color: #fff;
+  }
+
+  .risk-medium {
+    background: #f6ad55;
+    color: #fff;
+  }
+
+  .risk-low {
+    background: #68d391;
+    color: #fff;
+  }
+
+  /* Tables */
+  .info-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .info-table th {
+    background: #f7fafc;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+  }
+
+  .info-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e9f2;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: #3182ce;
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    background: #2c5282;
+  }
+
+  .btn-outline {
+    border: 1px solid #3182ce;
+    color: #3182ce;
+  }
+
+  .btn-outline:hover {
+    background: #3182ce;
+    color: #fff;
+  }
+
+  /* Progress Bar */
+  .similarity-bar {
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .similarity-progress {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+
+  /* Responsive Adjustments */
+  @media (max-width: 640px) {
+    .container {
+      padding: 1rem;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .faces-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <header class="section">
+    <div class="d-flex justify-content-between align-items-center">
+      <h1 class="text-2xl font-bold">Yüz Benzerlik Analizi</h1>
+    </div>
+  </header>
+
+  {% if stats %}
+  <section class="section">
+    <h2 class="text-xl font-semibold mb-4">Analiz Özeti</h2>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">{{ stats.total_images }}</div>
+        <div class="stat-label">Toplam Görsel</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ stats.total_faces }}</div>
+        <div class="stat-label">Toplam Yüz</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ stats.similar_faces }}</div>
+        <div class="stat-label">Benzer Yüz</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ stats.threshold|round(2) }}</div>
+        <div class="stat-label">Benzerlik Eşiği</div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if target_face %}
+  <section class="section">
+    <h2 class="text-xl font-semibold mb-4">Hedef Yüz</h2>
+    <div class="target-face">
+      <div class="card">
+        {% if target_face.image_data %}
+        <img src="data:{{ target_face.image_mime_type | default('image/jpeg') }};base64,{{ target_face.image_data }}" 
+             class="face-image" alt="Hedef Yüz">
+        {% elif target_face.original_image_url %}
+        <img src="{{ target_face.original_image_url }}" 
+             class="face-image" alt="Hedef Yüz">
+        {% else %}
+        <div class="face-image d-flex align-items-center justify-content-center bg-light">
+          <i class="fas fa-user fa-3x text-muted"></i>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="text-lg font-semibold">Yüz Bilgileri</h3>
+        </div>
+        <div class="card-body">
+          <table class="info-table">
+            <tr>
+              <th>ID</th>
+              <td>{{ target_face.id }}</td>
+            </tr>
+            <tr>
+              <th>Cinsiyet</th>
+              <td>{{ target_face.gender }}</td>
+            </tr>
+            <tr>
+              <th>Yaş</th>
+              <td>{{ target_face.age }}</td>
+            </tr>
+            <tr>
+              <th>Risk Seviyesi</th>
+              <td>
+                <span class="badge {% if target_face.risk_level == 'yüksek' %}risk-high{% elif target_face.risk_level == 'orta' %}risk-medium{% else %}risk-low{% endif %}">
+                  {{ target_face.risk_level|title }}
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <th>Domain</th>
+              <td>{{ target_face.domain }}</td>
+            </tr>
+          </table>
+
+          <div class="mt-4">
+            <a href="{{ url_for('web.face_details', face_id=target_face.id) }}" class="btn btn-outline mr-2">
+              <i class="fas fa-info-circle"></i>
+              <span>Detaylı Bilgi</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% else %}
+  <div class="alert alert-warning">
+    <i class="fas fa-exclamation-triangle mr-2"></i>
+    Hedef yüz bilgileri bulunamadı.
+  </div>
+  {% endif %}
+
+  <section class="section">
+    <h2 class="text-xl font-semibold mb-4">
+      Benzer Yüzler
+      <span class="badge bg-primary">{{ similar_faces|length }}</span>
+    </h2>
+
+    {% if similar_faces %}
+    <div class="faces-grid">
+      {% for face in similar_faces %}
+      <div class="face-card">
+        <div class="card-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="font-semibold">ID: {{ face.id }}</span>
+            <span class="badge" style="background: rgba({{ (1-face.similarity) * 255 }}, {{ face.similarity * 255 }}, 0, 0.8)">
+              {{ (face.similarity * 100)|round(1) }}%
+            </span>
+          </div>
+        </div>
+
+        {% if face.image_data %}
+        <img src="data:{{ face.image_mime_type | default('image/jpeg') }};base64,{{ face.image_data }}" 
+             class="face-image" alt="Yüz {{ face.id }}">
+        {% elif face.original_image_url %}
+        <img src="{{ face.original_image_url }}" 
+             class="face-image" alt="Yüz {{ face.id }}">
+        {% else %}
+        <div class="face-image d-flex align-items-center justify-content-center bg-light">
+          <i class="fas fa-image fa-3x text-muted"></i>
+        </div>
+        {% endif %}
+
+        <div class="face-details">
+          <div class="mb-3">
+            <span class="badge {% if face.risk_level == 'yüksek' %}risk-high{% elif face.risk_level == 'orta' %}risk-medium{% else %}risk-low{% endif %} mr-2">
+              {{ face.risk_level|title }}
+            </span>
+            <span class="badge bg-secondary">{{ face.gender }}</span>
+            <span class="badge bg-info">{{ face.age }} Yaş</span>
+          </div>
+
+          <div class="similarity-bar mb-3">
+            <div class="similarity-progress" 
+                 style="width: {{ (face.similarity * 100)|round }}%; background: rgba({{ (1-face.similarity) * 255 }}, {{ face.similarity * 255 }}, 0, 0.8)">
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">
+              <i class="fas fa-globe"></i>
+              {{ face.domain }}
+            </small>
+            <a href="{{ url_for('web.face_details', face_id=face.id) }}" class="btn btn-outline btn-sm">
+              <i class="fas fa-search"></i>
+              <span>Detaylar</span>
+            </a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+      <i class="fas fa-info-circle mr-2"></i>
+      Benzerlik eşiğinin üzerinde yüz bulunamadı. Eşik değerini düşürerek tekrar deneyebilirsiniz.
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

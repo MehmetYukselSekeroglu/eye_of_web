@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}EGM Yüz Arama{% endblock %}
+
+{% block styles %}
+<style>
+    .search-card {
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+        border: none;
+        border-radius: 10px;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 5px;
+        padding: 0.6rem 1rem;
+        border: 1px solid #ddd;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .btn-custom {
+        padding: 0.6rem 1.5rem;
+        border-radius: 5px;
+    }
+    
+    .icon-box {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: #f8d7da;
+        margin: 0 auto 1rem;
+        color: #dc3545;
+        font-size: 1.5rem;
+    }
+    
+    .info-box {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+    
+    .info-box h5 {
+        color: #495057;
+        margin-bottom: 1rem;
+    }
+    
+    .info-box p {
+        color: #6c757d;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">EGM Arananlar Yüz Arama</h2>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card search-card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">Görsel Yükleme ile EGM Arananlar Arama</h4>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('web.egm_upload_search') }}" method="post" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="mb-3">
+                            <label for="image_file" class="form-label">Görsel Seç</label>
+                            <input type="file" class="form-control" id="image_file" name="image_file" accept="image/*" required>
+                            <small class="form-text text-muted">
+                                Sadece tek yüz içeren görsel yükleyin. Birden fazla yüz içeren görseller kabul edilmeyecektir. Desteklenen formatlar: JPG, PNG, BMP.
+                            </small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="threshold" class="form-label">Benzerlik Eşiği</label>
+                            <input type="range" class="form-range" id="threshold" name="threshold" min="0.1" max="0.9" step="0.05" value="0.6">
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">Düşük (Daha fazla sonuç)</small>
+                                <small class="text-muted"><span id="threshold-value">0.6</span></small>
+                                <small class="text-muted">Yüksek (Daha kesin sonuçlar)</small>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-danger btn-custom">
+                                <i class="fas fa-search"></i> Ara
+                            </button>
+                            <a href="{{ url_for('web.egm_search') }}" class="btn btn-outline-secondary btn-custom ms-2">
+                                <i class="fas fa-list"></i> Metin Arama
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <div class="text-center mb-3">
+                    <div class="icon-box">
+                        <i class="fas fa-info"></i>
+                    </div>
+                    <h5>Görsel ile EGM Arananlar Arama Hakkında</h5>
+                </div>
+                <p>
+                    Bu özellik, yüklediğiniz bir görseldeki yüzleri analiz ederek EGM arananlar listesinde benzer yüzleri arar. Sistem, görseldeki her yüzü tespit eder ve her bir yüz için EGM veritabanında benzerlik araması yapar.
+                </p>
+                <p>
+                    Yüksek kaliteli, net ve mümkün olduğunca doğrudan bakan yüz görselleri en iyi sonuçları verir. Yüz açıkça görünmeli ve iyi aydınlatılmış olmalıdır. 
+                </p>
+                <p>
+                    <strong>Önemli Not:</strong> Bu özellik sadece yetkili kullanıcılar tarafından kullanılabilir ve yüz eşleşmeleri adli bir kanıt olarak değil, yalnızca bir inceleme aracı olarak değerlendirilmelidir. Her zaman uzman görüşüne başvurunuz.
+                </p>
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Bu araç hassas özellikli güvenlik bileşenidir. Tüm kullanımlar loglanmaktadır ve yalnızca resmi görevlendirme kapsamında kullanılmalıdır.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Eşik değerini gösteren script
+    document.getElementById('threshold').addEventListener('input', function() {
+        document.getElementById('threshold-value').innerText = this.value;
+    });
+</script>
+{% endblock %} 

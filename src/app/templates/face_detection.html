@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Yüz Tespiti - EyeOfWeb Anti Terror{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">Yüz Tespiti ve Bilgileri</h2>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card search-card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Görsel Yükleme ile Yüz Tespiti</h4>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('web.face_detection') }}" method="post" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="mb-3">
+                            <label for="image_file" class="form-label">Görsel Seç</label>
+                            <input type="file" class="form-control" id="image_file" name="image_file" accept="image/*" required>
+                            <small class="form-text text-muted">
+                                Yüz tespiti için bir görsel yükleyin. Desteklenen formatlar: JPG, PNG, BMP.
+                            </small>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-2"></i>Yüz Tespiti Yap
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            {% if results %}
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Tespit Sonuçları</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <strong>{{ message }}</strong>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h5>Yüklenen Görsel (Yüz Kutuları ile)</h5>
+                        <div class="text-center">
+                            <img src="data:image/jpeg;base64,{{ results.full_image }}" class="img-fluid rounded shadow" alt="Yüklenmiş Görsel">
+                        </div>
+                    </div>
+                    
+                    <h5>Tespit Edilen Yüzler</h5>
+                    <div class="row">
+                        {% for face in results.faces %}
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Yüz #{{ face.id }}</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="text-center mb-3">
+                                        <img src="data:image/jpeg;base64,{{ face.face_img }}" class="img-thumbnail" alt="Yüz #{{ face.id }}">
+                                    </div>
+                                    <table class="table table-sm">
+                                        <tbody>
+                                            <tr>
+                                                <th>Tespit Skoru:</th>
+                                                <td>{{ "%.2f"|format(face.detection_score) }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Cinsiyet:</th>
+                                                <td>{{ face.gender }}</td>
+                                            </tr>
+                                            {% if face.age is not none %}
+                                            <tr>
+                                                <th>Yaş:</th>
+                                                <td>{{ face.age }}</td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Download Button Added -->
+                    {% if report_available %}
+                    <div class="mb-3 text-right">
+                        <a href="{{ url_for('web.download_detection_report') }}" class="btn btn-success">
+                            <i class="fas fa-file-pdf"></i> PDF Rapor İndir
+                        </a>
+                    </div>
+                    {% endif %}
+                    <!-- End Download Button -->
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Resim ön izleme
+    document.getElementById('image_file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                // Eğer zaten bir önizleme resmi varsa kaldır
+                const existingPreview = document.getElementById('image-preview-container');
+                if (existingPreview) {
+                    existingPreview.remove();
+                }
+                
+                // Yeni önizleme oluştur
+                const previewContainer = document.createElement('div');
+                previewContainer.id = 'image-preview-container';
+                previewContainer.className = 'mt-3';
+                
+                const previewHeading = document.createElement('h6');
+                previewHeading.textContent = 'Görsel Önizleme:';
+                
+                const previewImage = document.createElement('img');
+                previewImage.src = event.target.result;
+                previewImage.className = 'img-fluid rounded shadow-sm';
+                previewImage.style.maxHeight = '300px';
+                
+                previewContainer.appendChild(previewHeading);
+                previewContainer.appendChild(previewImage);
+                
+                // Forumun hemen altına ekle
+                e.target.closest('form').appendChild(previewContainer);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+</script>
+{% endblock %} 

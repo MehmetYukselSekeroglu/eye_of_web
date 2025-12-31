@@ -1,0 +1,60 @@
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">Görsel Yükleme ile Yüz Arama</h4>
+    </div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('web.upload_search') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="mb-3">
+                <label for="image_file" class="form-label">Görsel Seç</label>
+                <input type="file" class="form-control" id="image_file" name="image_file" accept="image/*" required>
+                <small class="form-text text-muted">
+                    Sadece tek yüz içeren görsel yükleyin. Birden fazla yüz içeren görseller kabul edilmeyecektir. Desteklenen formatlar: JPG, PNG, BMP.
+                </small>
+            </div>
+            
+            <div class="mb-3">
+                <label for="threshold" class="form-label">Benzerlik Eşiği</label>
+                <input type="range" class="form-range" id="threshold" name="threshold" min="0.1" max="0.9" step="0.05" value="0.6">
+                <div class="d-flex justify-content-between">
+                    <small class="text-muted">Düşük (Daha fazla sonuç)</small>
+                    <small class="text-muted"><span id="threshold-value">0.6</span></small>
+                    <small class="text-muted">Yüksek (Daha kesin sonuçlar)</small>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Arama Kaynakları</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="search_whitelist" name="search_whitelist">
+                    <label class="form-check-label" for="search_whitelist">
+                        Beyaz Liste'de Ara
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="search_egm" name="search_egm">
+                    <label class="form-check-label" for="search_egm">
+                        EGM Arananlar Listesi'nde Ara
+                    </label>
+                </div>
+                <small class="form-text text-muted">
+                    Hiçbiri seçilmezse, sadece web'den tespit edilen yüzler aranır.
+                </small>
+            </div>
+            
+            <div class="text-center">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i> Ara
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Eşik değerini gösteren script
+    document.getElementById('threshold').addEventListener('input', function() {
+        document.getElementById('threshold-value').innerText = this.value;
+    });
+</script> 

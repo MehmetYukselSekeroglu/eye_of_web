@@ -1,0 +1,196 @@
+/* Ana renkler ve değişkenler */
+/* Versiyon: 1.0.1 - Son Güncelleme: 21 Mart 2023 */
+:root {
+    --primary-color: #0d6efd;
+    --secondary-color: #6c757d;
+    --dark-color: #343a40;
+    --light-color: #f8f9fa;
+    --danger-color: #dc3545;
+    --success-color: #198754;
+    --warning-color: #ffc107;
+    --info-color: #0dcaf0;
+}
+
+/* Genel stiller */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+/* Navbar özelleştirme */
+.navbar {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+    font-weight: 600;
+}
+
+/* Kartlar */
+.card {
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Butonlar */
+.btn {
+    border-radius: 0.25rem;
+    padding: 0.5rem 1.25rem;
+}
+
+/* Form elementleri */
+.form-control, .form-select {
+    border-radius: 0.25rem;
+    padding: 0.5rem 1rem;
+}
+
+/* Hata sayfaları */
+.error-page {
+    padding: 3rem 0;
+}
+
+.error-page .display-1 {
+    color: var(--danger-color);
+    opacity: 0.8;
+}
+
+/* Arama sonuçları */
+.search-result-item {
+    transition: all 0.2s ease;
+    border-left: 4px solid transparent;
+}
+
+.search-result-item:hover {
+    border-left-color: var(--primary-color);
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+/* Footer */
+.footer {
+    margin-top: auto;
+}
+
+/* Yüz landmark'ları ve eşleştirme alanları */
+.position-relative {
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+/* Landmark özellikleri devre dışı bırakıldı
+.landmark-canvas {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: none !important;
+    z-index: 10 !important;
+}
+*/
+
+.face-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 5px;
+    display: block; /* Görselin alt kısmında boşluk olmasını önle */
+}
+
+/* Benzerlik ve tespit skorları için badgeler */
+.similarity-badge, .detection-badge {
+    position: absolute;
+    z-index: 5;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+}
+
+/* Whitelist ve EGM listeleri için renkler */
+.border-whitelist {
+    border: 2px solid var(--success-color) !important;
+}
+
+.border-egm {
+    border: 2px solid var(--danger-color) !important;
+}
+
+/* EyeOfWeb Anti Terror - Sonuçlar sayfası için ek stiller */
+.result-card {
+    transition: transform 0.2s;
+    border: 1px solid #dee2e6;
+    overflow: hidden;
+}
+
+.result-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.img-container {
+    position: relative;
+    overflow: hidden;
+    padding: 10px;
+}
+
+/* Landmark özellikleri devre dışı bırakıldı
+.toggle-landmarks-btn {
+    margin-top: 5px;
+    font-size: 0.8rem;
+}
+*/
+
+/* Organizasyon seviyesi badgeleri */
+.badge-level-1, .badge-level-Üst {
+    background-color: #e74c3c !important;
+    color: white;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+    border-radius: 4px;
+}
+
+.badge-level-2, .badge-level-Orta {
+    background-color: #e67e22 !important;
+    color: white;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+    border-radius: 4px;
+}
+
+.badge-level-3, .badge-level-Alt {
+    background-color: #f1c40f !important;
+    color: #343a40;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+    border-radius: 4px;
+}
+
+/* Organizasyon badge'i */
+.badge-organizer {
+    background-color: #6610f2 !important;
+    color: white;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+    border-radius: 4px;
+    margin-right: 0.25rem;
+}
+
+/* Status badge'leri */
+.badge-status-active {
+    background-color: #28a745 !important;
+    color: white;
+}
+
+.badge-status-caught {
+    background-color: #17a2b8 !important;
+    color: white;
+}
+
+.badge-status-wanted {
+    background-color: #dc3545 !important;
+    color: white;
+} 

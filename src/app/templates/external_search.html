@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Dış Yüz Deposu Arama{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    .search-card {
+        border: none;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+    }
+    
+    .search-form .form-control, .search-form .form-select {
+        padding: 0.6rem 1rem;
+        border-radius: 0.25rem;
+    }
+    
+    .search-heading {
+        font-weight: 600;
+        color: #3a3a3a;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 1rem;
+    }
+    
+    .search-section {
+        margin-bottom: 1.5rem;
+    }
+    
+    .search-help-text {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Dış Yüz Deposu Arama</h2>
+    
+    <!-- Arama Formu -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Arama Kriterleri</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('web.external_search') }}" class="search-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label for="face_name">Yüz Adı:</label>
+                        <input type="text" name="face_name" id="face_name" class="form-control" value="{{ request.form.face_name }}" placeholder="Yüz adına göre arama yapın">
+                        <small class="form-text text-muted">Yüz adının bir kısmını yazarak arama yapabilirsiniz.</small>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="alarm">Alarm Durumu:</label>
+                        <select name="alarm" id="alarm" class="form-control">
+                            <option value="any">Tümü</option>
+                            <option value="true" {% if request.form.alarm == 'true' %}selected{% endif %}>Alarmlı</option>
+                            <option value="false" {% if request.form.alarm == 'false' %}selected{% endif %}>Alarmsız</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <label for="start_date">Başlangıç Tarihi:</label>
+                        <input type="date" name="start_date" id="start_date" class="form-control datepicker" value="{{ request.form.start_date }}">
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <label for="end_date">Bitiş Tarihi:</label>
+                        <input type="date" name="end_date" id="end_date" class="form-control datepicker" value="{{ request.form.end_date }}">
+                    </div>
+                </div>
+                
+                <div class="text-center mt-3">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Ara</button>
+                    <button type="reset" class="btn btn-secondary ml-2"><i class="fas fa-undo"></i> Temizle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Bilgi -->
+    <div class="alert alert-info">
+        <h5><i class="fas fa-info-circle"></i> Dış Yüz Deposu Hakkında</h5>
+        <p>Dış yüz deposunda harici kaynaklardan elde edilmiş ve etiketlenmiş yüz bilgileri bulunmaktadır. Alarm durumundaki yüzler arasında arama yapabilirsiniz.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/tr.js"></script>
+<script>
+    // Tarih seçicileri için Flatpickr ayarları
+    flatpickr(".datepicker", {
+        dateFormat: "Y-m-d",
+        locale: "tr",
+        allowInput: true,
+        maxDate: "today"
+    });
+</script>
+{% endblock %} 

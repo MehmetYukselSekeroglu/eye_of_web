@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block title %}EGM Arananlar Listesi Sonuçları{% endblock %}
+
+{% block styles %}
+<style>
+    .face-card {
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s;
+    }
+    
+    .face-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .search-params {
+        background-color: #f8f9fa;
+        border-left: 4px solid #17a2b8;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .badge-organizer {
+        background-color: #6610f2;
+        color: white;
+    }
+    
+    .badge-level-Üst {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .badge-level-Orta {
+        background-color: #fd7e14;
+        color: white;
+    }
+    
+    .badge-level-Alt {
+        background-color: #28a745;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('web.index') }}">Ana Sayfa</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('web.egm_search') }}">EGM Arananlar Listesi Arama</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Sonuçlar</li>
+        </ol>
+    </nav>
+    
+    <h2 class="mb-4">EGM Arananlar Listesi Sonuçları</h2>
+    
+    <!-- Arama Parametreleri Özeti -->
+    <div class="search-params mb-4">
+        <h5><i class="fas fa-filter"></i> Arama Filtreleri</h5>
+        
+        <!-- Eğer sorgu görseli varsa göster -->
+        {% if query_face_image %}
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <div class="card border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">Aranan Yüz</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="position-relative img-container">
+                                    <img src="data:image/jpeg;base64,{{ query_face_image }}" class="img-fluid rounded face-image" alt="Aranan Yüz">
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <h5>Arama Kriterleri</h5>
+                                <p>Bu yüze benzer EGM Arananlar listesi sonuçları arama kriterleriniz:</p>
+                                <ul>
+                                    <li>Benzerlik Eşiği: {{ "%.0f"|format(params.threshold * 100) }}%</li>
+                                    <li>Bulunan Toplam Sonuç: {{ results|length }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="row">
+            {% if params.face_name %}
+            <div class="col-md-4 mb-2">
+                <strong>İsim:</strong> {{ params.face_name }}
+            </div>
+            {% endif %}
+            
+            {% if params.organizer %}
+            <div class="col-md-4 mb-2">
+                <strong>Örgüt:</strong> {{ params.organizer }}
+            </div>
+            {% endif %}
+            
+            {% if params.organizer_level %}
+            <div class="col-md-4 mb-2">
+                <strong>Örgüt Seviyesi:</strong> {{ params.organizer_level }}
+            </div>
+            {% endif %}
+            
+            {% if params.start_date or params.end_date %}
+            <div class="col-md-4 mb-2">
+                <strong>Tarih Aralığı:</strong> 
+                {{ params.start_date or 'Başlangıç' }} - {{ params.end_date or 'Bugün' }}
+            </div>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('web.egm_search') }}" class="btn btn-sm btn-secondary mt-2">
+            <i class="fas fa-edit"></i> Aramayı Düzenle
+        </a>
+    </div>
+    
+    <!-- Sonuçlar -->
+    <div class="row">
+        {% if results and results|length > 0 %}
+            <div class="col-12 mb-4">
+                <div class="alert alert-info">
+                    <strong>{{ results|length }}</strong> adet sonuç bulundu.
+                </div>
+            </div>
+            
+            {% for face in results %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">{{ face.id if face.id else 'ID: Yok' }}</h5>
+                            <span class="badge bg-light text-dark">
+                                {{ "%.2f"|format(face.similarity * 100) }}% Benzerlik
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="position-relative img-container">
+                            <img src="data:image/jpeg;base64,{{ face.image_data }}" class="img-fluid rounded face-image" alt="EGM Aranan Yüz">
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h6 class="card-title">{{ face.face_name if face.face_name else 'İsimsiz' }}</h6>
+                            <div class="card-text small">
+                                <p class="mb-1">
+                                    <strong>Örgüt:</strong> <span class="badge badge-organizer">{{ face.organizer if face.organizer else 'Belirtilmemiş' }}</span>
+                                </p>
+                                <p class="mb-1">
+                                    <strong>Örgüt Seviyesi:</strong> <span class="badge badge-level-{{ face.organizer_level }}">{{ face.organizer_level if face.organizer_level else 'Belirtilmemiş' }} Düzey</span>
+                                </p>
+                                <p class="mb-1">
+                                    <strong>Durum:</strong> {{ face.status if face.status else 'Belirtilmemiş' }}
+                                </p>
+                                <p class="mb-1">
+                                    <strong>Suç:</strong> {{ face.crime if face.crime else 'Belirtilmemiş' }}
+                                </p>
+                                <p class="mb-1">
+                                    <strong>Yakalanma Tarihi:</strong> {{ face.catch_date if face.catch_date else 'Belirtilmemiş' }}
+                                </p>
+                                {% if face.birth_date_location %}
+                                <p class="mb-1">
+                                    <strong>Doğum Bilgileri:</strong> {{ face.birth_date_location }}
+                                </p>
+                                {% endif %}
+                                {% if face.detection_date %}
+                                <p class="mb-1">
+                                    <strong>Tespit Tarihi:</strong> {{ face.detection_date.split('T')[0] if 'T' in face.detection_date else face.detection_date }}
+                                </p>
+                                {% endif %}
+                                <p class="mb-1">
+                                    <strong>Cinsiyet:</strong> {{ "Erkek" if face.gender else "Kadın" }}
+                                </p>
+                                {% if face.age %}
+                                <p class="mb-0">
+                                    <strong>Yaş:</strong> {{ face.age }}
+                                </p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer text-center">
+                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#faceModal{{ face.id }}">
+                            <i class="fas fa-search-plus"></i> Detaylı Görüntüle
+                        </button>
+                        
+                        <!-- Yüz Benzerliği Arama Butonunu Ekle -->
+                        <a href="{{ url_for('web.egm_search_by_face', face_id=face.id) }}" class="btn btn-sm btn-info mt-2">
+                            <i class="fas fa-search"></i> Benzer Yüzleri Ara
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal -->
+            <div class="modal fade" id="faceModal{{ face.id }}" tabindex="-1" aria-labelledby="faceModalLabel{{ face.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title" id="faceModalLabel{{ face.id }}">{{ face.face_name if face.face_name else 'İsimsiz' }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-5 text-center">
+                                    {% if face.image_data %}
+                                    <img src="data:image/jpeg;base64,{{ face.image_data }}" class="img-fluid rounded" alt="{{ face.face_name }}">
+                                    {% else %}
+                                    <div class="text-center">
+                                        <img src="{{ url_for('static', filename='img/profile-placeholder.png') }}" class="img-fluid rounded" alt="Görsel Mevcut Değil">
+                                        <p class="text-muted mt-2">Resim bulunamadı</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-7">
+                                    <h5 class="mb-3">Kişi Bilgileri</h5>
+                                    
+                                    <div class="mb-3">
+                                        <span class="badge badge-organizer">{{ face.organizer if face.organizer else 'Belirtilmemiş' }}</span>
+                                        <span class="badge badge-level-{{ face.organizer_level }}">{{ face.organizer_level if face.organizer_level else 'Belirtilmemiş' }} Düzey</span>
+                                    </div>
+                                    
+                                    <table class="table table-striped">
+                                        <tbody>
+                                            {% if face.birth_date_location %}
+                                            <tr>
+                                                <th>Doğum Bilgileri:</th>
+                                                <td>{{ face.birth_date_location }}</td>
+                                            </tr>
+                                            {% endif %}
+                                            
+                                            <tr>
+                                                <th>Cinsiyet:</th>
+                                                <td>{{ "Erkek" if face.gender else "Kadın" }}</td>
+                                            </tr>
+                                            
+                                            {% if face.age %}
+                                            <tr>
+                                                <th>Yaş:</th>
+                                                <td>{{ face.age }}</td>
+                                            </tr>
+                                            {% endif %}
+                                            
+                                            {% if face.detection_date %}
+                                            <tr>
+                                                <th>Tespit Tarihi:</th>
+                                                <td>{{ face.detection_date.split('T')[0] if 'T' in face.detection_date else face.detection_date }}</td>
+                                            </tr>
+                                            {% endif %}
+                                            
+                                            <tr>
+                                                <th>ID:</th>
+                                                <td>{{ face.id }}</td>
+                                            </tr>
+                                            
+                                            {% if face.status %}
+                                            <tr>
+                                                <th>Durum:</th>
+                                                <td>{{ face.status }}</td>
+                                            </tr>
+                                            {% endif %}
+                                            
+                                            {% if face.crime %}
+                                            <tr>
+                                                <th>Suç:</th>
+                                                <td>{{ face.crime }}</td>
+                                            </tr>
+                                            {% endif %}
+                                            
+                                            {% if face.catch_date %}
+                                            <tr>
+                                                <th>Yakalanma Tarihi:</th>
+                                                <td>{{ face.catch_date }}</td>
+                                            </tr>
+                                            {% endif %}
+                                            
+                                            {% if face.description %}
+                                            <tr>
+                                                <th>Açıklama:</th>
+                                                <td>{{ face.description }}</td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                            
+                            <!-- Burada benzer yüzleri arama butonu ekle -->
+                            <a href="{{ url_for('web.egm_search_by_face', face_id=face.id) }}" class="btn btn-info">
+                                <i class="fas fa-search"></i> Benzer Yüzleri Ara
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle"></i> Sonuç Bulunamadı</h5>
+                    <p>Arama kriterlerinize uygun kişi bulunamadı. Lütfen arama kriterlerinizi değiştirerek tekrar deneyiniz.</p>
+                    <a href="{{ url_for('web.egm_search') }}" class="btn btn-warning">
+                        <i class="fas fa-edit"></i> Aramayı Düzenle
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 

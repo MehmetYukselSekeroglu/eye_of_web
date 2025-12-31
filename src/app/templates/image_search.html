@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}Görsel ile Arama{% endblock %}
+
+{% block styles %}
+<style>
+    .image-search-card {
+        border: none;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+    }
+    
+    .image-upload-area {
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .image-upload-area:hover, .image-upload-area.dragover {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+    
+    .image-upload-icon {
+        font-size: 3rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    
+    .image-preview-container {
+        display: none;
+        margin-top: 1.5rem;
+    }
+    
+    .image-preview {
+        max-width: 100%;
+        max-height: 300px;
+        border-radius: 6px;
+        box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+    }
+    
+    .threshold-container {
+        margin-top: 1.5rem;
+    }
+    
+    .threshold-value {
+        display: inline-block;
+        width: 40px;
+        text-align: center;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Görsel ile Yüz Arama</h2>
+    
+    <!-- Yükleme Formu -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Görsel Yükle</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('web.search_by_image') }}" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label for="image" class="form-label">Yüz İçeren Görsel Seçin:</label>
+                            <input type="file" name="image" id="image" class="form-control" accept="image/*" required onchange="previewImage(this)">
+                            <small class="form-text text-muted">Desteklenen formatlar: JPG, PNG, BMP</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="threshold" class="form-label">Benzerlik Eşiği ({{ threshold|default(0.6) }}):</label>
+                            <input type="range" name="threshold" id="threshold" class="form-range" min="0.3" max="0.9" step="0.05" value="{{ threshold|default(0.6) }}" oninput="updateThresholdValue(this.value)">
+                            <div class="d-flex justify-content-between">
+                                <small>Düşük (Daha çok sonuç)</small>
+                                <small id="threshold_value">{{ threshold|default(0.6) }}</small>
+                                <small>Yüksek (Daha kesin sonuç)</small>
+                            </div>
+                        </div>
+
+                        <!-- YENİ: Benzerlik Algoritması -->
+                        <div class="mb-4">
+                            <label for="similarity_algorithm" class="form-label">Benzerlik Algoritması:</label>
+                            <select name="similarity_algorithm" id="similarity_algorithm" class="form-control">
+                                <option value="cosine" {% if selected_algorithm == 'cosine' %}selected{% endif %}>Kosinüs</option>
+                                {#% if use_cuda %} {# Euclidean sadece CUDA ile gösteriliyor demiştik, bu kontrol kalabilir veya kaldırılabilir #}
+                                {# <option value="euclidean" {% if selected_algorithm == 'euclidean' %}selected{% endif %}>Öklid</option> #}
+                                {#% endif %#}
+                                {# <option value="manhattan" {% if selected_algorithm == 'manhattan' %}selected{% endif %}>Manhattan</option> #}
+                            </select>
+                            {# Eşik gösterimi artık gereksiz olabilir ama JS kodu kaldığı için bırakılabilir #}
+                            {# <small class="form-text text-muted">
+                                Geçerli Eşik: <span id="current-threshold-value" class="font-weight-bold">--%</span>
+                            </small> #}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="image-preview-container text-center">
+                            <div id="preview-box" class="mb-2 p-2 border rounded" style="min-height: 200px; display: flex; align-items: center; justify-content: center;">
+                                <span class="text-muted" id="preview-placeholder">Görsel Önizleme</span>
+                                <img id="image-preview" class="img-fluid d-none" alt="Önizleme">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Yüz Ara
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Sonuçlar -->
+    {% if results %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Arama Sonuçları ({{ results|length }} sonuç)</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for result in results %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">Yüz ID: {{ result.id }}</h6>
+                            <span class="badge bg-info">{{ result.similarity|round(2) * 100 }}% Benzerlik</span>
+                        </div>
+                        
+                        <div class="text-center p-3">
+                            {% if result.image_data %}
+                            <img src="data:image/jpeg;base64,{{ result.image_data }}" class="img-fluid rounded" alt="Yüz" style="max-height: 200px;" onerror="this.src='{{ url_for('static', filename='img/profile-placeholder.png') }}';">
+                            {% elif result.image_url %}
+                            <img src="{{ result.image_url }}" class="img-fluid rounded" alt="Yüz" style="max-height: 200px;" onerror="this.src='{{ url_for('static', filename='img/profile-placeholder.png') }}';">
+                            {% elif result.use_default_image %}
+                            <img src="{{ url_for('static', filename='img/profile-placeholder.png') }}" class="img-fluid rounded" alt="Varsayılan Yüz" style="max-height: 200px;">
+                            {% else %}
+                            <div class="alert alert-warning p-2">
+                                <i class="fas fa-exclamation-triangle"></i> Görsel bulunamadı
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Cinsiyet:</span>
+                                    <span>{{ "Erkek" if result.gender else "Kadın" }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Yaş:</span>
+                                    <span>{{ result.age }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Alan Adı:</span>
+                                    <span class="text-truncate" style="max-width: 150px;" title="{{ result.domain }}">{{ result.domain }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Risk Seviyesi:</span>
+                                    <span class="badge {% if result.risk_level == 'yüksek' %}badge-danger{% elif result.risk_level == 'orta' %}badge-warning{% else %}badge-info{% endif %}">
+                                        {{ result.risk_level if result.risk_level else "Bilinmiyor" }}
+                                    </span>
+                                </li>
+                                {% if result.detection_date %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Tespit Tarihi:</span>
+                                    <span>{{ result.detection_date.split('T')[0] }}</span>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        <div class="card-footer text-center">
+                            <a href="{{ url_for('web.face_details', face_id=result.id) }}" class="btn btn-sm btn-primary">Detaylar</a>
+                            
+                            {% if result.image_url %}
+                            <a href="{{ result.image_url }}" target="_blank" class="btn btn-sm btn-info">Resmi Görüntüle</a>
+                            {% endif %}
+                            
+                            {% if result.source_url %}
+                            <a href="{{ result.source_url }}" target="_blank" class="btn btn-sm btn-secondary mt-2">Kaynağı Ziyaret Et</a>
+                            {% elif result.domain %}
+                            <a href="{{ result.protocol or 'http' }}://{{ result.domain }}/{{ result.url_path or '' }}" target="_blank" class="btn btn-sm btn-secondary mt-2">Kaynağı Ziyaret Et</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% elif search_performed %}
+    <div class="alert alert-info mt-4">
+        <h5>Sonuç Bulunamadı</h5>
+        <p>{{ message }}</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function previewImage(input) {
+    const preview = document.getElementById('image-preview');
+    const placeholder = document.getElementById('preview-placeholder');
+    
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.classList.remove('d-none');
+            placeholder.classList.add('d-none');
+        };
+        
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        preview.classList.add('d-none');
+        placeholder.classList.remove('d-none');
+    }
+}
+
+function updateThresholdValue(value) {
+    document.getElementById('threshold_value').textContent = value;
+}
+</script>
+{% endblock %} 

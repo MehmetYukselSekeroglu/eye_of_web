@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+
+{% block title %}Yüz İlişki Analizi - {{ target_face.id }}{% endblock %}
+
+{% block styles %}
+<style>
+  .pair-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    background-color: #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  }
+  
+  .pair-header {
+    background-color: #f1f3f5;
+    padding: 10px 15px;
+    border-bottom: 1px solid #e0e0e0;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+  }
+  
+  .pair-header h5 {
+    margin-bottom: 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  
+  .face-subcard {
+    text-align: center;
+    padding: 15px;
+  }
+  
+  .face-subcard img {
+    max-width: 100%;
+    max-height: 180px;
+    object-fit: contain;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    border: 1px solid #eee;
+  }
+  
+  .similarity-info {
+    text-align: center;
+    padding: 20px 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #007bff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .co-occurrence-badge {
+    font-size: 0.9rem;
+    margin-top: 10px;
+    background-color: #6c757d;
+    color: white;
+  }
+  
+  .stats-card {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .stats-card .card {
+      margin-bottom: 0;
+  }
+  
+  .threshold-form .form-row {
+      display: flex;
+      align-items: flex-end; 
+  }
+  
+  .threshold-form .form-group {
+      margin-right: 15px;
+  }
+  
+  .target-face-display {
+      background-color: #e9ecef;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+  }
+  
+  .target-face-display img {
+      max-height: 150px;
+      border-radius: 5px;
+  }
+  
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4">Yüz İlişki Analizi (ID: {{ target_face.id }})</h2>
+  
+  <!-- Ayar Formu -->
+  <div class="card threshold-form mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Analiz Ayarları</h5>
+      <form action="{{ url_for('web.face_similarity_analysis', face_id=target_face.id) }}" method="GET">
+        <div class="form-row">
+          <div class="form-group mb-2 me-3">
+            <label for="threshold">Benzerlik Eşiği (%):</label>
+            <input type="number" step="5" min="10" max="100" class="form-control" id="threshold" name="threshold"
+                   value="{{ stats.threshold|default(60) * 100 if stats.threshold|default(0.6) < 1 else stats.threshold|default(60)|int }}">
+            <small class="form-text text-muted">İki yüz arasındaki minimum benzerlik yüzdesi</small>
+          </div>
+          <div class="form-group mb-2 me-3">
+            <label for="min_cooccurrence">Min. Birlikte Görünme:</label>
+            <input type="number" step="1" min="1" class="form-control" id="min_cooccurrence" name="min_cooccurrence"
+                   value="{{ stats.min_cooccurrence|default(2) }}">
+            <small class="form-text text-muted">İki yüzün en az kaç görüntüde birlikte bulunması gerektiği</small>
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary mt-4">Analizi Güncelle</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- İstatistikler -->
+  {% if stats %}
+  <div class="stats-card">
+    <h6>Analiz Özeti</h6>
+    <div class="row">
+      <div class="col-md-3 col-6 mb-2">
+        <div class="card text-center h-100">
+          <div class="card-body p-2">
+            <h5 class="mb-0">{{ stats.total_images }}</h5>
+            <small class="text-muted">Toplam Görsel</small>
+          </div>
+        </div>
+      </div>
+       <div class="col-md-3 col-6 mb-2">
+        <div class="card text-center h-100">
+          <div class="card-body p-2">
+            <h5 class="mb-0">{{ stats.total_unique_faces }}</h5>
+            <small class="text-muted">Toplam Benzersiz Yüz</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-6 mb-2">
+        <div class="card text-center h-100">
+          <div class="card-body p-2">
+            <h5 class="mb-0">{{ stats.faces_with_embedding }}</h5>
+            <small class="text-muted">Embed. Olan Yüz</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-6 mb-2">
+        <div class="card text-center h-100">
+          <div class="card-body p-2">
+            <h5 class="mb-0">{{ stats.pairs_above_threshold }}</h5>
+            <small class="text-muted">Eşik Üstü Çift</small>
+          </div>
+        </div>
+      </div>
+       <div class="col-md-3 col-6 mb-2">
+        <div class="card text-center h-100">
+          <div class="card-body p-2">
+            <h5 class="mb-0">{{ stats.final_related_pairs }}</h5>
+            <small class="text-muted">Bulunan İlişkili Çift</small>
+          </div>
+        </div>
+      </div>
+       <div class="col-md-3 col-6 mb-2">
+        <div class="card text-center h-100">
+          <div class="card-body p-2">
+            <h5 class="mb-0">{{ stats.threshold|default(0.6) * 100 if stats.threshold|default(0.6) < 1 else stats.threshold|default(60)|int }}%</h5>
+            <small class="text-muted">Benzerlik Eşiği</small>
+          </div>
+        </div>
+      </div>
+       <div class="col-md-3 col-6 mb-2">
+        <div class="card text-center h-100">
+          <div class="card-body p-2">
+            <h5 class="mb-0">{{ stats.min_cooccurrence }}</h5>
+            <small class="text-muted">Min. Birliktelik</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Hedef Yüz (Referans için küçük gösterim) -->
+  {% if target_face and target_face.id %}
+  <div class="target-face-display">
+      <div class="row align-items-center">
+          <div class="col-auto">
+              {% if target_face.image_data %}
+              <img src="data:image/jpeg;base64,{{ target_face.image_data }}" class="img-thumbnail" alt="Hedef Yüz {{ target_face.id }}">
+              {% else %}
+              <i class="fas fa-user fa-3x text-muted"></i>
+              {% endif %}
+          </div>
+          <div class="col">
+              <h6 class="mb-1">Referans Yüz: {{ target_face.id }}</h6>
+              <small class="text-muted">Bu analiz, bu yüzün bulunduğu görsellerdeki diğer yüzlerle olan ilişkilerini göstermektedir.</small>
+          </div>
+      </div>
+  </div>
+  {% endif %}
+
+  <!-- İlişkili Yüz Çiftleri -->
+  <h4 class="mb-3">İlişkili Yüz Çiftleri ({{ related_pairs|length }})</h4>
+
+  {% if related_pairs %}
+    {% for pair_data in related_pairs %}
+    <div class="pair-card">
+      <div class="pair-header">
+        <h5>Çift: {{ pair_data.pair[0] }} & {{ pair_data.pair[1] }}</h5>
+      </div>
+      <div class="row g-0">
+        <!-- Yüz 1 -->
+        <div class="col-md-5">
+          <div class="face-subcard">
+            {% if pair_data.face1.image_data %}
+            <img src="data:image/jpeg;base64,{{ pair_data.face1.image_data }}" alt="Yüz {{ pair_data.face1.id }}">
+            {% else %}
+             <i class="fas fa-image fa-3x text-secondary my-5"></i>
+            {% endif %}
+            <h6>Yüz ID: {{ pair_data.face1.id }}</h6>
+            <small class="text-muted">{{ pair_data.face1.gender }}, {{ pair_data.face1.age }} Yaş</small>
+            <br>
+            <a href="{{ url_for('web.face_details', face_id=pair_data.face1.id) }}" class="btn btn-sm btn-outline-secondary mt-1">Detay</a>
+          </div>
+        </div>
+        
+        <!-- Benzerlik ve Birliktelik -->
+        <div class="col-md-2">
+          <div class="similarity-info h-100">
+            <i class="fas fa-link mb-2"></i>
+            %{{ (pair_data.similarity * 100)|round(1) }}
+            <span class="badge co-occurrence-badge">{{ pair_data.co_occurrence_count }} kez birlikte</span>
+          </div>
+        </div>
+        
+        <!-- Yüz 2 -->
+        <div class="col-md-5">
+          <div class="face-subcard">
+            {% if pair_data.face2.image_data %}
+            <img src="data:image/jpeg;base64,{{ pair_data.face2.image_data }}" alt="Yüz {{ pair_data.face2.id }}">
+            {% else %}
+            <i class="fas fa-image fa-3x text-secondary my-5"></i>
+            {% endif %}
+            <h6>Yüz ID: {{ pair_data.face2.id }}</h6>
+            <small class="text-muted">{{ pair_data.face2.gender }}, {{ pair_data.face2.age }} Yaş</small>
+             <br>
+            <a href="{{ url_for('web.face_details', face_id=pair_data.face2.id) }}" class="btn btn-sm btn-outline-secondary mt-1">Detay</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="alert alert-info">
+    Belirtilen kriterlere (min. {{ stats.threshold|default(0.6) * 100 if stats.threshold|default(0.6) < 1 else stats.threshold|default(60)|int }}% benzerlik ve en az {{ stats.min_cooccurrence }} kez birlikte görünme) uyan ilişkili yüz çifti bulunamadı.
+    Ayarları değiştirerek tekrar deneyebilirsiniz.
+  </div>
+  {% endif %}
+</div>
+{% endblock %} 

@@ -1,0 +1,555 @@
+{% extends "base.html" %}
+
+{% block title %}Kontrol Paneli - {{ env_config.APP_NAME }}{% endblock %}
+
+{% block styles %}
+<style>
+    .dashboard-card {
+        border: none;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+    }
+    
+    .dashboard-card:hover {
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1);
+        transform: translateY(-5px);
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: #0d6efd;
+    }
+    
+    .stat-label {
+        font-size: 1rem;
+        color: #6c757d;
+    }
+    
+    .stat-icon {
+        font-size: 2rem;
+        color: rgba(13, 110, 253, 0.2);
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+    
+    .recent-item {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 0.75rem;
+        transition: all 0.2s ease;
+        background-color: #f8f9fa;
+    }
+    
+    .recent-item:hover {
+        background-color: #e9ecef;
+    }
+    
+    .recent-face-img {
+        width: 50px;
+        height: 50px;
+        object-fit: cover;
+        border-radius: 0.25rem;
+    }
+    
+    .db-stat-badge {
+        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        margin-left: 0.5rem;
+    }
+    
+    .db-size-card {
+        background-color: #f0f7ff;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .table-info-row:nth-child(odd) {
+        background-color: rgba(0,0,0,0.02);
+    }
+    
+    .table-info-row:hover {
+        background-color: rgba(0,0,0,0.05);
+    }
+    
+    .section-header {
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .table-search {
+        margin-bottom: 1rem;
+    }
+    
+    .sortable {
+        cursor: pointer;
+    }
+    
+    .sortable:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .sortable::after {
+        content: "⇵";
+        margin-left: 5px;
+        opacity: 0.5;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 280px;
+        width: 100%;
+    }
+    
+    .chart-legend {
+        margin-top: 15px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin: 5px 10px;
+    }
+    
+    .legend-color {
+        width: 12px;
+        height: 12px;
+        margin-right: 5px;
+        border-radius: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="fas fa-chart-line me-2"></i> Kontrol Paneli
+        </h2>
+        <div>
+            <a href="{{ url_for('web.index') }}" class="btn btn-outline-primary">
+                <i class="fas fa-home me-2"></i> Ana Sayfa
+            </a>
+        </div>
+    </div>
+    
+    <!-- İstatistik Kartları -->
+    <div class="row mb-5">
+        <div class="col-md-3 mb-4">
+            <div class="card dashboard-card h-100">
+                <div class="card-body p-4 position-relative">
+                    <div class="stat-icon">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="stat-value">{{ stats.total_faces|default(0) }}</div>
+                    <div class="stat-label">Toplam Yüz</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card dashboard-card h-100">
+                <div class="card-body p-4 position-relative">
+                    <div class="stat-icon">
+                        <i class="fas fa-globe"></i>
+                    </div>
+                    <div class="stat-value">{{ stats.total_domains|default(0) }}</div>
+                    <div class="stat-label">Toplam Domain</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card dashboard-card h-100">
+                <div class="card-body p-4 position-relative">
+                    <div class="stat-icon">
+                        <i class="fas fa-image"></i>
+                    </div>
+                    <div class="stat-value">{{ stats.total_images|default(0) }}</div>
+                    <div class="stat-label">Toplam Görsel</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card dashboard-card h-100">
+                <div class="card-body p-4 position-relative">
+                    <div class="stat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="stat-value">{{ stats.high_risk|default(0) }}</div>
+                    <div class="stat-label">Yüksek Riskli</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Veritabanı Boyutu -->
+    <div class="row mb-4">
+        <div class="col-12 mb-4">
+            <div class="card dashboard-card db-size-card">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1"><i class="fas fa-database me-2"></i> Veritabanı Boyutu</h5>
+                            <p class="mb-0 text-muted">Toplam veri boyutu ve tablo dağılımı</p>
+                        </div>
+                        <div class="h2 mb-0 fw-bold text-primary">
+                            {{ stats.db_size.pretty_size|default('0 KB') }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Grafikler ve Tablolar -->
+    <div class="row mb-4">
+        <div class="col-lg-6 mb-4">
+            <div class="card dashboard-card h-100">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i> Risk Seviyesi Dağılımı
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    {% if stats.risk_levels_chart and stats.risk_levels_chart|length > 0 %}
+                        <div class="chart-container">
+                            <canvas id="riskLevelChart"></canvas>
+                        </div>
+                    {% else %}
+                        <div class="text-center p-5 text-muted">
+                            <em>Risk seviyesi verisi bulunamadı</em>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 mb-4">
+            <div class="card dashboard-card h-100">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i> Kategori Dağılımı
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    {% if stats.categories_chart and stats.categories_chart|length > 0 %}
+                        <div class="chart-container">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    {% else %}
+                        <div class="text-center p-5 text-muted">
+                            <em>Kategori verisi bulunamadı</em>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Veritabanı Tabloları ve Detayları -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card dashboard-card">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-table me-2"></i> Veritabanı Tabloları ve Kayıt Sayıları
+                    </h5>
+                    <span class="badge bg-info">{{ stats.table_stats|length }} tablo</span>
+                </div>
+                <div class="card-body p-4">
+                    <div class="table-search mb-3">
+                        <input type="text" id="tableSearchInput" class="form-control" placeholder="Tablo ara...">
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="databaseTablesTable">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" onclick="sortTable(0)">Tablo Adı</th>
+                                    <th class="sortable" onclick="sortTable(1)">Kayıt Sayısı</th>
+                                    <th class="sortable" onclick="sortTable(2)">Boyut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if stats.table_stats and stats.table_stats|length > 0 %}
+                                    {% for table in stats.table_stats %}
+                                        <tr class="table-info-row">
+                                            <td>{{ table.name }}</td>
+                                            <td>{{ table.count|default(0) }}</td>
+                                            <td>
+                                                {% if stats.table_sizes %}
+                                                    {% for size in stats.table_sizes %}
+                                                        {% if size.table_name == table.name %}
+                                                            {{ size.pretty_size }}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="3" class="text-center p-4">
+                                            <em>Tablo bilgisi bulunamadı</em>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Son Taramalar -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card dashboard-card">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i> Son Taramalar
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    {% if stats.recent_scans and stats.recent_scans|length > 0 %}
+                        {% for scan in stats.recent_scans %}
+                            <div class="recent-item d-flex align-items-center">
+                                <div class="me-3">
+                                    {% if scan.image_url %}
+                                        <img src="{{ scan.image_url }}" alt="Yüz" class="recent-face-img">
+                                    {% else %}
+                                        <div class="recent-face-img bg-light d-flex justify-content-center align-items-center">
+                                            <i class="fas fa-user-circle text-secondary"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between">
+                                        <h6 class="mb-0">{{ scan.domain }}</h6>
+                                        <span class="small text-muted">{{ scan.date }}</span>
+                                    </div>
+                                    <p class="mb-0 small">{{ scan.faces_found }} yüz tespit edildi</p>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center p-5 text-muted">
+                            <em>Henüz tarama verisi bulunmamaktadır</em>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js kütüphanesini ekle -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+
+<script>
+    // Tablo arama işlevi
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('tableSearchInput');
+        searchInput.addEventListener('keyup', function() {
+            const filter = searchInput.value.toUpperCase();
+            const table = document.getElementById('databaseTablesTable');
+            const tr = table.getElementsByTagName('tr');
+            
+            for (let i = 1; i < tr.length; i++) {
+                const td = tr[i].getElementsByTagName('td')[0];
+                if (td) {
+                    const txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        tr[i].style.display = '';
+                    } else {
+                        tr[i].style.display = 'none';
+                    }
+                }
+            }
+        });
+        
+        // Risk seviyesi grafiği
+        {% if stats.risk_levels_chart and stats.risk_levels_chart|length > 0 %}
+            const riskCtx = document.getElementById('riskLevelChart').getContext('2d');
+            
+            // Risk seviyesi verilerini hazırla
+            const riskLabels = [];
+            const riskData = [];
+            const riskColors = [];
+            
+            const riskColorMap = {
+                'düşük': '#28a745',    // yeşil
+                'orta': '#ffc107',     // sarı
+                'yüksek': '#dc3545',   // kırmızı
+                'kritik': '#6f42c1'    // mor
+            };
+            
+            {% for risk in stats.risk_levels_chart %}
+                riskLabels.push({{ risk.risk_level|tojson }});
+                riskData.push({{ risk.count }});
+                const riskLevel = {{ risk.risk_level|tojson }};
+                riskColors.push(riskColorMap[riskLevel] || '#6c757d');
+            {% endfor %}
+            
+            new Chart(riskCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: riskLabels,
+                    datasets: [{
+                        data: riskData,
+                        backgroundColor: riskColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                boxWidth: 12
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        {% endif %}
+        
+        // Kategori dağılımı grafiği
+        {% if stats.categories_chart and stats.categories_chart|length > 0 %}
+            const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+            
+            // Kategori verilerini hazırla
+            const categoryLabels = [];
+            const categoryData = [];
+            const categoryColors = [
+                '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', 
+                '#5a5c69', '#6f42c1', '#fd7e14', '#20c997', '#6c757d'
+            ];
+            
+            {% for category in stats.categories_chart %}
+                categoryLabels.push({{ (category.category|default('Bilinmeyen'))|tojson }});
+                categoryData.push({{ category.count }});
+            {% endfor %}
+            
+            new Chart(categoryCtx, {
+                type: 'bar',
+                data: {
+                    labels: categoryLabels,
+                    datasets: [{
+                        label: 'Kategori Dağılımı',
+                        data: categoryData,
+                        backgroundColor: categoryColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        {% endif %}
+    });
+    
+    // Tablo sıralama işlevi
+    function sortTable(n) {
+        let table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        table = document.getElementById("databaseTablesTable");
+        switching = true;
+        dir = "asc";
+        
+        while (switching) {
+            switching = false;
+            rows = table.rows;
+            
+            for (i = 1; i < (rows.length - 1); i++) {
+                shouldSwitch = false;
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+                
+                // Sayı ise sayısal sıralama yapalım
+                if (n === 1) {
+                    if (dir == "asc") {
+                        if (parseInt(x.innerHTML) > parseInt(y.innerHTML)) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    } else if (dir == "desc") {
+                        if (parseInt(x.innerHTML) < parseInt(y.innerHTML)) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                } else {
+                    if (dir == "asc") {
+                        if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    } else if (dir == "desc") {
+                        if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount++;
+            } else {
+                if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+</script>
+{% endblock %} 

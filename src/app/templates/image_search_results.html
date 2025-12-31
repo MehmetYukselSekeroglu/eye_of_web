@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Görsel Arama Sonuçları - {{ env_config.APP_NAME }}{% endblock %}
+
+{% block styles %}
+<style>
+    .result-card {
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.05);
+    }
+    
+    .result-card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .face-image {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 6px;
+    }
+    
+    .similarity-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    
+    .result-info {
+        font-size: 0.9rem;
+    }
+    
+    .result-domain {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2 class="mb-4">
+        <i class="fas fa-image me-2"></i> Görsel Arama Sonuçları
+    </h2>
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <p class="mb-0">
+                <span class="fw-bold">Eşleşme Hassasiyeti:</span> {{ threshold }}
+            </p>
+            <p class="mb-0">
+                <span class="fw-bold">Yüklenen Görsel:</span> {{ image_name }}
+            </p>
+        </div>
+        <a href="{{ url_for('web.search_by_image') }}" class="btn btn-outline-primary">
+            <i class="fas fa-search me-2"></i> Yeni Arama
+        </a>
+    </div>
+    
+    <!-- PDF İndirme Düğmesi -->
+    {% if results %}
+    <div class="mb-3">
+        <a href="{{ url_for('web.download_image_search_report') }}" class="btn btn-success btn-sm" target="_blank">
+            <i class="fas fa-file-pdf"></i> PDF Raporu İndir
+        </a>
+    </div>
+    {% endif %}
+    
+    {% if results|length > 0 %}
+        <div class="row">
+            {% for result in results %}
+                <div class="col-md-4 col-lg-3 mb-4">
+                    <div class="card result-card h-100">
+                        <div class="card-body p-3">
+                            <div class="position-relative mb-3">
+                                {% if result.image_url %}
+                                    <img src="{{ result.image_url }}" alt="Yüz" class="face-image" 
+                                         onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/placeholder.png') }}'; this.alt='Resim Yüklenemedi';">
+                                {% elif result.image_data %}
+                                    <img src="data:{{ result.image_mime_type | default('image/jpeg') }};base64,{{ result.image_data }}" alt="Yüz (DB)" class="face-image">
+                                {% else %}
+                                    <div class="face-image bg-light d-flex justify-content-center align-items-center">
+                                        <i class="fas fa-user-circle fa-3x text-secondary"></i>
+                                        {% if result.image_error %}
+                                            <small class="text-muted position-absolute bottom-0 start-50 translate-middle-x p-1 bg-white w-100 text-center" style="font-size: 0.7rem;">{{ result.image_error }}</small>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                                
+                                {% if result.similarity %}
+                                    <span class="similarity-badge badge bg-primary">
+                                        {{ "%.1f"|format(result.similarity * 100) }}% Eşleşme
+                                    </span>
+                                {% endif %}
+                            </div>
+                            
+                            <h5 class="card-title mb-2">
+                                <a href="{{ url_for('web.face_details', face_id=result.id) }}" class="text-decoration-none">
+                                    Yüz #{{ result.id }}
+                                </a>
+                            </h5>
+                            
+                            <div class="result-info">
+                                {% if result.domain %}
+                                    <p class="mb-1 result-domain">
+                                        <i class="fas fa-globe me-2"></i> {{ result.domain }}
+                                    </p>
+                                {% endif %}
+                                
+                                {% if result.detection_date %}
+                                    <p class="mb-1">
+                                        <i class="fas fa-calendar-alt me-2"></i> {{ result.detection_date }}
+                                    </p>
+                                {% endif %}
+                                
+                                {% if result.risk_level %}
+                                    <p class="mb-1">
+                                        <i class="fas fa-shield-alt me-2"></i> {{ result.risk_level }}
+                                    </p>
+                                {% endif %}
+                            </div>
+                            
+                            <a href="{{ url_for('web.face_details', face_id=result.id) }}" class="btn btn-sm btn-outline-primary mt-2 w-100">
+                                <i class="fas fa-info-circle me-1"></i> Detaylar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i> Eşleşen yüz bulunamadı. Lütfen farklı bir görsel ile tekrar deneyin veya eşleşme hassasiyetini düşürün.
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="tr" class="h-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>{% block title %}{{ env_config.APP_NAME }}{% endblock %}</title>
+    
+    <!-- CSRF ve JWT Token Meta Etiketleri -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    {% if session.logged_in %}
+    <meta name="jwt-token" content="{{ jwt_token }}">
+    {% endif %}
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    {% block styles %}{% endblock %}
+</head>
+<body class="d-flex flex-column min-vh-100">
+    
+    <!-- Navbar -->
+    {% if session.logged_in %}
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('web.index') }}">
+                <i class="fas fa-eye me-2"></i>{{ env_config.APP_NAME }}
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web.index') }}">Ana Sayfa</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="searchDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-search"></i> Arama
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="searchDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('web.search') }}">
+                                <i class="fas fa-filter me-2"></i> Filtre Bazlı Arama
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('web.search_by_image') }}">
+                                <i class="fas fa-image me-2"></i> Görsel Bazlı Arama
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('web.text_search') }}">
+                                <i class="fas fa-font me-2"></i> Metin Bazlı Arama
+                            </a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="yuzAramaDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Yüz Aramaları
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="yuzAramaDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('web.search_by_image') }}">Normal Yüz Arama</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('web.whitelist_upload_search') }}">Beyaz Liste Yüz Arama</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('web.egm_upload_search') }}">EGM Arananlar Yüz Arama</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('web.face_detection') }}">Yüz Tespiti</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('web.face_comparison') }}">Yüz Karşılaştırma</a></li>
+                        </ul>
+                    </li>
+
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="listesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Listeler
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="listesDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('web.whitelist_search') }}">Beyaz Liste</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('web.whitelist_upload_search') }}">Beyaz Liste Yüz Arama</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('web.egm_search') }}">EGM Arananlar</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('web.egm_upload_search') }}">EGM Arananlar Yüz Arama</a></li>
+                            {% if 'external_search' in url_for.__globals__ %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('web.external_search') }}">Dış Yüz Deposu</a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    {% if session.is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web.dashboard') }}">Kontrol Paneli</a>
+                    </li>
+                    {% endif %}
+                    {% if session.logged_in and session.is_admin %}
+                        <li class="nav-item">
+                            <a class="nav-link text-warning" href="{{ url_for('admin.dashboard') }}">
+                                <i class="fas fa-user-shield me-1"></i> Admin Paneli
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+                <div class="navbar-nav">
+                    <span class="nav-item nav-link text-light">
+                        <i class="fas fa-user me-1"></i> {{ session.username }}
+                    </span>
+                    <a class="nav-link" href="{{ url_for('web.about') }}">
+                        <i class="fas fa-info-circle me-1"></i> Hakkında
+                    </a>
+                    <a class="nav-link" href="{{ url_for('auth.logout') }}">
+                        <i class="fas fa-sign-out-alt me-1"></i> Çıkış
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+    
+    <!-- Flash Messages -->
+    <div class="container mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+    </div>
+    
+    <!-- Main Content -->
+    <main class="flex-grow-1 py-4">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="footer mt-auto py-3 bg-dark text-white">
+        <div class="container text-center">
+            <p class="mb-0">© {{ now.year }} {{ env_config.APP_NAME }} - {{ env_config.VENDOR_NAME }}</p>
+        </div>
+    </footer>
+    
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Bootstrap JS with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Font Awesome -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    
+    <!-- Custom JS -->
+    {% if url_for('static', filename='js/utils.js') %}
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    {% endif %}
+    {% if url_for('static', filename='js/main.js') %}
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% endif %}
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html> 

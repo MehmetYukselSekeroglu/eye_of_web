@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+
+{% block title %}Arama - {{ env_config.APP_NAME }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    .search-card {
+        border: none;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+    }
+    
+    .search-form .form-control, .search-form .form-select {
+        padding: 0.6rem 1rem;
+        border-radius: 0.25rem;
+    }
+    
+    .search-heading {
+        font-weight: 600;
+        color: #3a3a3a;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 1rem;
+    }
+    
+    .search-section {
+        margin-bottom: 1.5rem;
+    }
+    
+    .search-help-text {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Yüz Arama</h2>
+    
+    {% if request.args.get('analysis') %}
+    <div class="alert alert-info mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-info-circle fa-2x me-3"></i>
+            <div>
+                <h5 class="mb-1">Analiz İçin Yüz Seçimi</h5>
+                <p class="mb-0">Analiz yapmak için aşağıdaki kriterlerle arama yaparak bir yüz seçiniz. Sonuçlar listesinden detaylar sayfasına gidip analiz araçlarını kullanabilirsiniz.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Arama Formu -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Arama Kriterleri</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('web.search') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="domain">Alan Adı:</label>
+                        <select name="domain" id="domain" class="form-control">
+                            <option value="">Tümü</option>
+                            {% for domain in domains %}
+                            <option value="{{ domain }}" {% if request.form.domain == domain %}selected{% endif %}>{{ domain }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <label for="risk_level">Risk Seviyesi:</label>
+                        <select name="risk_level" id="risk_level" class="form-control">
+                            <option value="">Tümü</option>
+                            {% for level in risk_levels %}
+                            <option value="{{ level }}" {% if request.form.risk_level == level %}selected{% endif %}>{{ level }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <label for="category">Kategori:</label>
+                        <select name="category" id="category" class="form-control">
+                            <option value="">Tümü</option>
+                            {% for category in categories %}
+                            <option value="{{ category }}" {% if request.form.category == category %}selected{% endif %}>{{ category }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="start_date">Başlangıç Tarihi:</label>
+                        <input type="date" name="start_date" id="start_date" class="form-control" value="{{ request.form.start_date }}">
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="end_date">Bitiş Tarihi:</label>
+                        <input type="date" name="end_date" id="end_date" class="form-control" value="{{ request.form.end_date }}">
+                    </div>
+                </div>
+                
+                <div class="text-center mt-3">
+                    <button type="submit" class="btn btn-primary">Ara</button>
+                    <button type="reset" class="btn btn-secondary ml-2">Temizle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Sonuçlar -->
+    {% if results %}
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Arama Sonuçları ({{ results|length }} sonuç)</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for face in results %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Yüz ID: {{ face.id }}</h6>
+                        </div>
+                        
+                        <!-- Resim Gösterimi -->
+                        <div class="text-center p-3 position-relative">
+                            <div class="face-image-container" id="face-container-{{ face.id }}">
+                                {% if face.image_data %}
+                                <img src="data:image/jpeg;base64,{{ face.image_data }}" class="img-fluid rounded" alt="Yüz" style="max-height: 200px;">
+                                {% elif face.image_url %}
+                                <a href="{{ face.image_url }}" target="_blank">
+                                    <img src="{{ face.image_url }}" class="img-fluid rounded" alt="Yüz" style="max-height: 200px;" onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/profile-placeholder.png') }}';">
+                                </a>
+                                {% else %}
+                                <div class="text-center">
+                                    <img src="{{ url_for('static', filename='img/profile-placeholder.png') }}" class="img-fluid rounded" alt="Yüz Mevcut Değil" style="max-height: 200px;">
+                                    <p class="text-muted mt-2 small">Resim bulunamadı</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Yükleniyor göstergesi -->
+                            <div id="loading-{{ face.id }}" class="loading-indicator" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8); border-radius: 0.25rem; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Yükleniyor...</span>
+                                </div>
+                                <p class="mt-2 mb-0">Yüz yükleniyor...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Cinsiyet:</span>
+                                    <span>{{ "Erkek" if face.gender else "Kadın" }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Yaş:</span>
+                                    <span>{{ face.age }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Alan Adı:</span>
+                                    <span class="text-truncate" style="max-width: 150px;" title="{{ face.domain }}">{{ face.domain }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Risk Seviyesi:</span>
+                                    <span class="badge {% if face.risk_level == 'yüksek' %}badge-danger{% elif face.risk_level == 'orta' %}badge-warning{% else %}badge-info{% endif %}">
+                                        {{ face.risk_level if face.risk_level else "Bilinmiyor" }}
+                                    </span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Kategori:</span>
+                                    <span>{{ face.category if face.category else "Bilinmiyor" }}</span>
+                                </li>
+                                {% if face.detection_date %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Tespit Tarihi:</span>
+                                    <span>{{ face.detection_date.split('T')[0] }}</span>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        <div class="card-footer text-center">
+                            <a href="{{ url_for('web.face_details', face_id=face.id) }}" class="btn btn-sm btn-primary">Detaylar</a>
+                            
+                            <button type="button" class="btn btn-sm btn-info load-face-btn" data-face-id="{{ face.id }}" data-domain="{{ face.domain }}">
+                                <i class="fas fa-user me-1"></i> Yüzü Göster
+                            </button>
+                            
+                            {% if face.image_url %}
+                            <a href="{{ face.image_url }}" target="_blank" class="btn btn-sm btn-info mt-2">Resmi Görüntüle</a>
+                            {% endif %}
+                            
+                            {% if face.source_url %}
+                            <a href="{{ face.source_url }}" target="_blank" class="btn btn-sm btn-secondary mt-2">Kaynağı Ziyaret Et</a>
+                            {% elif face.domain %}
+                            <a href="{{ face.protocol or 'http' }}://{{ face.domain }}/{{ face.url_path or '' }}" target="_blank" class="btn btn-sm btn-secondary mt-2">Kaynağı Ziyaret Et</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% elif search_performed %}
+    <div class="alert alert-info">
+        <h5>Sonuç Bulunamadı</h5>
+        <p>Arama kriterlerinize uygun yüz bulunamadı. Lütfen kriterleri değiştirerek tekrar deneyiniz.</p>
+    </div>
+    {% endif %}
+        transform: translateY(-5px);
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/tr.js"></script>
+<script>
+    // Tarih seçicileri için Flatpickr ayarları
+    flatpickr(".datepicker", {
+        dateFormat: "Y-m-d",
+        locale: "tr",
+    });
+    
+    // Yüz kartlarının yükleme düğmelerine tıklama olaylarını ekle
+    document.addEventListener('DOMContentLoaded', function() {
+        // Tüm yüzü göster butonlarını seç
+        const loadFaceButtons = document.querySelectorAll('.load-face-btn');
+        
+        // Her butona tıklama olayı ekle
+        loadFaceButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const faceId = this.getAttribute('data-face-id');
+                const domain = this.getAttribute('data-domain');
+                
+                // Yükleniyor göstergesini göster
+                const loadingIndicator = document.getElementById(`loading-${faceId}`);
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'flex';
+                }
+                
+                // İlgili yüzü getir
+                loadFaceForDomain(faceId, domain);
+            });
+        });
+    });
+    
+    // Belirli bir domain için yüzü getir
+    function loadFaceForDomain(faceId, domain) {
+        // Form verisi oluştur
+        const formData = new FormData();
+        formData.append('domain', domain);
+        formData.append('face_id', faceId);
+        
+        // CSRF token
+        formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+        
+        // Fetch API ile istek gönder
+        fetch('{{ url_for("web.fetch_domain_faces") }}', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Yükleniyor göstergesini gizle
+            const loadingIndicator = document.getElementById(`loading-${faceId}`);
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+            
+            if (data.success && data.faces && data.faces.length > 0) {
+                // İlk yüzü al (ilgili yüz)
+                const face = data.faces[0];
+                
+                if (face.image_data) {
+                    // Resmi kutusuna yerleştir
+                    const faceContainer = document.getElementById(`face-container-${faceId}`);
+                    if (faceContainer) {
+                        faceContainer.innerHTML = `
+                            <img src="data:image/jpeg;base64,${face.image_data}" 
+                                class="img-fluid rounded" alt="Yüz" style="max-height: 200px;">
+                            <div class="face-loaded-indicator mt-2">
+                                <span class="badge bg-success"><i class="fas fa-check me-1"></i> Yüz gösterildi</span>
+                            </div>
+                        `;
+                    }
+                } else {
+                    showErrorMessage(faceId, "Yüz resmi bulunamadı");
+                }
+            } else {
+                showErrorMessage(faceId, data.message || "Yüz bulunamadı");
+            }
+        })
+        .catch(error => {
+            // Yükleniyor göstergesini gizle
+            const loadingIndicator = document.getElementById(`loading-${faceId}`);
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+            
+            console.error('Yüz getirilirken hata:', error);
+            showErrorMessage(faceId, error.message || "Yüz yüklenirken bir hata oluştu");
+        });
+    }
+    
+    // Hata mesajını göster
+    function showErrorMessage(faceId, message) {
+        const faceContainer = document.getElementById(`face-container-${faceId}`);
+        if (faceContainer) {
+            faceContainer.innerHTML += `
+                <div class="alert alert-warning mt-2 mb-0 py-2">
+                    <small>${message}</small>
+                </div>
+            `;
+        }
+    }{% endblock %} 

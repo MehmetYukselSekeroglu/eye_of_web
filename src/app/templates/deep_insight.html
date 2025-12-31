@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block title %}Deep Insight Analizi - {{ env_config.APP_NAME }}{% endblock %}
+
+{% block styles %}
+<style>
+    .insight-header {
+        background: linear-gradient(to right, #3a7bd5, #00d2ff);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        color: white;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .insight-card {
+        border-radius: 0.5rem;
+        overflow: hidden;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .insight-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .insight-card .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #eee;
+        font-weight: 600;
+    }
+    
+    .insight-image {
+        max-height: 200px;
+        object-fit: cover;
+        width: 100%;
+    }
+    
+    .relationship-count {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #3a7bd5;
+    }
+    
+    .percentage-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 2rem;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+    }
+    
+    .stats-card {
+        border-left: 4px solid #3a7bd5;
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .stats-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #3a7bd5;
+    }
+    
+    .stats-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    .original-face {
+        border: 3px solid #3a7bd5;
+        border-radius: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="insight-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="mb-0">
+                    <i class="fas fa-brain me-2"></i> Deep Insight Analizi
+                </h2>
+                <p class="lead mb-0 mt-2">
+                    Yüz ID: {{ face.id }} - İlişki Ağı Analizi
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{{ url_for('web.face_details', face_id=face.id) }}" class="btn btn-light">
+                    <i class="fas fa-arrow-left me-1"></i> Yüz Detaylarına Dön
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Ana yüz bilgileri -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card original-face">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Analiz Edilen Yüz</h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if face.image_data %}
+                    <img src="data:image/jpeg;base64,{{ face.image_data }}" class="img-fluid mb-3 rounded" alt="Analiz Edilen Yüz">
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i> Yüz görseli bulunamadı
+                    </div>
+                    {% endif %}
+                    
+                    <h5 class="mt-3">{{ face.face_name or 'İsimsiz Yüz' }}</h5>
+                    
+                    <div class="mt-3">
+                        <table class="table table-sm">
+                            <tbody>
+                                {% if face.domain %}
+                                <tr>
+                                    <th>Domain:</th>
+                                    <td>{{ face.domain }}</td>
+                                </tr>
+                                {% endif %}
+                                
+                                {% if face.risk_level %}
+                                <tr>
+                                    <th>Risk:</th>
+                                    <td>
+                                        <span class="badge {% if face.risk_level == 'yüksek' %}bg-danger{% elif face.risk_level == 'orta' %}bg-warning{% else %}bg-info{% endif %}">
+                                            {{ face.risk_level }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                
+                                {% if face.detection_date %}
+                                <tr>
+                                    <th>Tarih:</th>
+                                    <td>{{ face.detection_date.split('T')[0] if 'T' in face.detection_date else face.detection_date }}</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="stats-card">
+                        <div class="stats-value">{{ stats.total_images }}</div>
+                        <div class="stats-label">
+                            <i class="fas fa-images me-1"></i> Toplam Görsel
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <div class="stats-card">
+                        <div class="stats-value">{{ stats.unique_faces }}</div>
+                        <div class="stats-label">
+                            <i class="fas fa-users me-1"></i> Benzersiz Yüz
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <div class="stats-card">
+                        <div class="stats-value">{{ stats.top_face_count }}</div>
+                        <div class="stats-label">
+                            <i class="fas fa-star me-1"></i> En Yüksek Birliktelik
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <div class="stats-card">
+                        <div class="stats-value">{{ relationships|length }}</div>
+                        <div class="stats-label">
+                            <i class="fas fa-network-wired me-1"></i> Analiz Edilen İlişki
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-info mt-3">
+                <h5><i class="fas fa-info-circle me-2"></i> Deep Insight Nedir?</h5>
+                <p>
+                    Bu analiz, seçilen yüzün en çok hangi diğer yüzlerle birlikte görüldüğünü tespit eder. Sonuçlar, yüzün sosyal ağını ve ilişkilerini anlamak için kullanılabilir.
+                </p>
+                <p class="mb-0">
+                    <strong>Hesaplama Yöntemi:</strong> Bir yüzün diğer bir yüzle birliktelik oranı, o yüzün toplam görünme sayısının, aynı görselde birlikte göründüğü yüz sayısına bölünmesiyle hesaplanır.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- İlişki Sonuçları -->
+    <div class="mt-5">
+        <h3 class="mb-4">
+            <i class="fas fa-project-diagram me-2"></i> İlişki Ağı Sonuçları
+        </h3>
+        
+        {% if relationships|length > 0 %}
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                {% for relationship in relationships %}
+                <div class="col">
+                    <div class="card insight-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Yüz ID: {{ relationship.face_id }}</span>
+                            <span class="badge bg-primary">{{ relationship.count }} Kez</span>
+                        </div>
+                        
+                        <div class="position-relative">
+                            {% if relationship.image_data %}
+                            <img src="data:image/jpeg;base64,{{ relationship.image_data }}" class="insight-image" alt="Yüz {{ relationship.face_id }}">
+                            {% else %}
+                            <div class="text-center py-4 bg-light">
+                                <i class="fas fa-image fa-3x text-secondary"></i>
+                                <p class="mt-2 text-muted">Görsel Bulunamadı</p>
+                            </div>
+                            {% endif %}
+                            <span class="percentage-badge">
+                                <i class="fas fa-percentage me-1"></i> {{ relationship.percentage }}%
+                            </span>
+                        </div>
+                        
+                        <div class="card-body">
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>Domain:</th>
+                                        <td>{{ relationship.domain or "Bilinmiyor" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Risk:</th>
+                                        <td>
+                                            <span class="badge {% if relationship.risk_level == 'yüksek' %}bg-danger{% elif relationship.risk_level == 'orta' %}bg-warning{% else %}bg-info{% endif %}">
+                                                {{ relationship.risk_level or "Bilinmiyor" }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>Cinsiyet:</th>
+                                        <td>{{ 'Erkek' if relationship.gender else 'Kadın' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Yaş:</th>
+                                        <td>{{ relationship.age or "Bilinmiyor" }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="card-footer">
+                            <div class="d-flex justify-content-between">
+                                <a href="{{ url_for('web.face_details', face_id=relationship.face_id) }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-info-circle me-1"></i> Detaylar
+                                </a>
+                                <a href="{{ url_for('web.deep_insight', face_id=relationship.face_id) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-brain me-1"></i> Bu Yüzü Analiz Et
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i> Bu yüzle ilişkili başka yüzler bulunamadı.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 

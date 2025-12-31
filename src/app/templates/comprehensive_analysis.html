@@ -1,0 +1,442 @@
+{% extends 'base.html' %}
+
+{% block title %}Kapsamlı Kişi Analizi - {{ target_face.id }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/placeholder-loading/0.2.5/css/placeholder-loading.min.css">
+<style>
+    .analysis-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 2rem 1.5rem;
+        margin-bottom: 2rem;
+        border-radius: 0.5rem;
+    }
+
+    .target-face img {
+        max-width: 180px;
+        border-radius: 50%; /* Dairesel */
+        border: 4px solid #007bff;
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    }
+
+    .stats-card {
+        background-color: #ffffff;
+        border: 1px solid #e3e6f0;
+        border-radius: 0.35rem;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    }
+
+    .stats-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .stats-list li {
+        padding: 0.6rem 0;
+        border-bottom: 1px solid #e3e6f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.95rem;
+    }
+    .stats-list li:last-child {
+        border-bottom: none;
+    }
+    .stats-list strong {
+        color: #4e73df;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 400;
+        color: #5a5c69;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e3e6f0;
+    }
+
+    .face-card {
+        background-color: white;
+        border-radius: 0.35rem;
+        border: 1px solid #e3e6f0;
+        box-shadow: 0 0.1rem 0.5rem rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 100%; /* Kartların aynı hizada kalması için */
+    }
+
+    .face-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+    }
+
+    .face-card .img-container {
+        position: relative;
+        width: 100%;
+        padding-top: 100%; /* 1:1 aspect ratio */
+        background-color: #f8f9fc; /* Placeholder background */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+     .face-card .img-container i {
+        font-size: 3rem;
+        color: #d1d3e2;
+     }
+
+    .face-card img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-bottom: 1px solid #e3e6f0;
+    }
+
+    .face-card-body {
+        padding: 1rem;
+        flex-grow: 1; /* Body kısmının kalan alanı doldurması için */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .face-title {
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #5a5c69;
+    }
+
+    .face-info {
+        font-size: 0.8rem;
+        color: #858796;
+        margin-bottom: 0.5rem;
+    }
+    .face-card-footer {
+        margin-top: auto; /* Butonları en alta iter */
+        padding-top: 0.75rem;
+        border-top: 1px solid #e3e6f0;
+    }
+
+    .badge-overlay {
+        position: absolute;
+        top: 8px;
+        padding: 0.25em 0.6em;
+        font-size: 0.75rem;
+        font-weight: 700;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.25rem;
+        color: #fff;
+    }
+
+    .similarity-badge {
+        left: 8px;
+        background-color: rgba(0, 123, 255, 0.85); /* Mavi tonu */
+    }
+
+    .risk-badge {
+        right: 8px;
+    }
+    .risk-low { background-color: #1cc88a; }
+    .risk-medium { background-color: #f6c23e; color: #5a5c69; }
+    .risk-high { background-color: #e74a3b; }
+    .risk-critical { background-color: #5a5c69; }
+
+    .domains-badge {
+        display: inline-block;
+        margin-right: 5px;
+        margin-bottom: 5px;
+        background-color: #f8f9fc;
+        color: #5a5c69;
+        font-size: 0.75rem;
+        padding: 3px 8px;
+        border-radius: 10rem;
+        border: 1px solid #d1d3e2;
+    }
+
+    .threshold-form .input-group-text {
+        background-color: #eaecf4;
+        border-color: #d1d3e2;
+        color: #5a5c69;
+    }
+
+    /* Placeholder loading */
+    .ph-item {
+        background-color: #f8f9fc;
+        border: 1px solid #e3e6f0;
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header Section -->
+    <div class="analysis-header">
+        <div class="row align-items-center">
+            <div class="col-md-3 text-center target-face">
+                {% if target_face.image_data %}
+                    <img src="data:{{ target_face.image_mime_type | default('image/jpeg') }};base64,{{ target_face.image_data }}" 
+                         alt="Hedef Yüz ID: {{ target_face.id }}"
+                         onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/profile-placeholder.png') }}'; this.alt='Resim Yüklenemedi';">
+                {% else %}
+                    <img src="{{ url_for('static', filename='img/profile-placeholder.png') }}" alt="Hedef Yüz ID: {{ target_face.id }}">
+                {% endif %}
+                <h5 class="mt-3 mb-0">Hedef Yüz: #{{ target_face.id }}</h5>
+            </div>
+            <div class="col-md-5">
+                <div class="stats-card">
+                    <h5 class="mb-3 text-primary"><i class="fas fa-chart-bar me-2"></i>Analiz İstatistikleri</h5>
+                    <ul class="stats-list">
+                        <li><span><i class="fas fa-users me-2 text-gray-400"></i>Benzer Yüz Sayısı:</span> <strong>{{ stats.total_similar_faces }}</strong></li>
+                        <li><span><i class="fas fa-images me-2 text-gray-400"></i>İlgili Görsel Sayısı:</span> <strong>{{ stats.total_images }}</strong></li>
+                        <li><span><i class="fas fa-link me-2 text-gray-400"></i>İlişkili Yüz Sayısı:</span> <strong>{{ stats.total_related_faces }}</strong></li>
+                        <li><span><i class="fas fa-globe me-2 text-gray-400"></i>Benzersiz Domain Sayısı:</span> <strong>{{ stats.domains_count }}</strong></li>
+                        <li>
+                            <span><i class="fas fa-shield-alt me-2 text-gray-400"></i>En Yüksek Risk:</span>
+                            <strong>
+                                {% if stats.highest_risk_level == 1 %}<span class="badge bg-success">Düşük</span>
+                                {% elif stats.highest_risk_level == 2 %}<span class="badge bg-warning text-dark">Orta</span>
+                                {% elif stats.highest_risk_level == 3 %}<span class="badge bg-danger">Yüksek</span>
+                                {% elif stats.highest_risk_level == 4 %}<span class="badge bg-dark">Kritik</span>
+                                {% else %}<span class="badge bg-secondary">Bilinmiyor</span>
+                                {% endif %}
+                            </strong>
+                        </li>
+                        <li><span><i class="fas fa-users me-2 text-gray-400"></i>Hedef Grubu Boyutu:</span> <strong>{{ stats.total_similar_faces }} yüz</strong></li>
+                        <li><span><i class="fas fa-object-group me-2 text-gray-400"></i>İlişkili Grup Sayısı:</span> <strong>{{ stats.total_related_groups }} grup</strong></li>
+                        <li><span><i class="fas fa-images me-2 text-gray-400"></i>Toplam Tekil Görsel:</span> <strong>{{ stats.total_unique_images }} adet</strong></li>
+                        <li><span><i class="fas fa-sliders-h me-2 text-gray-400"></i>Benzerlik Eşiği:</span> <strong>{{ stats.threshold }}</strong></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-4">
+                 <div class="stats-card threshold-form mb-3">
+                    <h5 class="mb-3 text-primary"><i class="fas fa-sliders-h me-2"></i>Analiz Ayarları</h5>
+                    <form method="GET">
+                        <div class="mb-3">
+                            <label for="threshold-input" class="form-label">Benzerlik Eşiği:</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="threshold-input" name="threshold" value="{{ stats.threshold }}" min="0.1" max="0.99" step="0.05">
+                                <button class="btn btn-primary" type="submit"><i class="fas fa-sync-alt"></i></button>
+                            </div>
+                            <small class="form-text text-muted">Yüzlerin 'aynı kişi' sayılması için gereken minimum benzerlik.</small>
+                        </div>
+                    </form>
+                </div>
+                <!-- PDF İndirme Butonu -->
+                <div class="text-center">
+                    <a href="{{ url_for('web.download_comprehensive_analysis_report') }}" class="btn btn-success btn-icon-split btn-lg">
+                        <span class="icon text-white-50">
+                            <i class="fas fa-file-pdf"></i>
+                        </span>
+                        <span class="text">PDF Rapor İndir</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Similar Faces Section -->
+    {% if similar_faces|length > 0 %}
+    <div class="similar-faces mb-5">
+        <h3 class="section-title">Benzer Yüzler (Aynı Kişi) <span class="badge bg-info text-white rounded-pill ms-2">{{ similar_faces|length }}</span></h3>
+        <p class="text-muted mb-4">Aşağıdaki yüzler, belirlenen benzerlik eşiğine göre hedef yüz ile aynı kişi olarak kabul edilmiştir.</p>
+
+        <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-3">
+            {% for face in similar_faces %}
+            <div class="col">
+                <div class="face-card">
+                    <div class="img-container">
+                        {% if face.original_image_url and face.facebox %}
+                            <img src="{{ face.original_image_url }}" alt="Face ID: {{ face.id }}" loading="lazy">
+                            <span class="facebox-data" data-facebox="{{ face.facebox|tojson }}" style="display:none;"></span>
+                        {% else %}
+                            <i class="fas fa-user-slash"></i> <!-- Placeholder icon -->
+                        {% endif %}
+
+                        {% if face.similarity and face.similarity < 1.0 %}
+                            <span class="badge-overlay similarity-badge">{{ (face.similarity * 100)|round(1) }}%</span>
+                        {% endif %}
+
+                        {% if face.risk_level %}
+                            {% set risk_class = 'risk-low' %}
+                            {% if face.risk_level == 2 %}{% set risk_class = 'risk-medium' %}
+                            {% elif face.risk_level == 3 %}{% set risk_class = 'risk-high' %}
+                            {% elif face.risk_level == 4 %}{% set risk_class = 'risk-critical' %}
+                            {% endif %}
+                            <span class="badge-overlay risk-badge {{ risk_class }}">
+                                {{ ['?', 'Düşük', 'Orta', 'Yüksek', 'Kritik'][face.risk_level] }}
+                            </span>
+                        {% endif %}
+                    </div>
+                    <div class="face-card-body">
+                        <div class="face-title">#{{ face.id }}</div>
+                         <div class="face-info">
+                            {% if face.image_id %}Görsel ID: {{ face.image_id }}{% endif %}
+                        </div>
+                    </div>
+                    <div class="face-card-footer text-center">
+                        <a href="{{ url_for('web.face_details', face_id=face.id) }}" class="btn btn-sm btn-outline-primary w-100">
+                            <i class="fas fa-info-circle me-1"></i> Detaylar
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Related Faces Section -->
+    {% if related_faces|length > 0 %}
+    <div class="related-faces">
+        <h3 class="section-title">İlişkili Yüzler <span class="badge bg-secondary text-white rounded-pill ms-2">{{ related_faces|length }}</span></h3>
+        <p class="text-muted mb-4">Aşağıdaki yüzler, yukarıda tanımlanan kişi ile aynı görsellerde tespit edilmiştir.</p>
+
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+            {% for face in related_faces %}
+            <div class="col">
+                <div class="face-card">
+                     <div class="img-container">
+                        {% if face.image_data %}
+                            <img src="data:{{ face.image_mime_type | default('image/jpeg') }};base64,{{ face.image_data }}" 
+                                 alt="İlişkili Yüz ID: {{ face.id }}"
+                                 onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/profile-placeholder.png') }}'; this.alt='Resim Yüklenemedi';">
+                        {% elif face.original_image_url %}
+                             <img src="{{ face.original_image_url }}" 
+                                 alt="İlişkili Yüz ID: {{ face.id }}"
+                                 onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/profile-placeholder.png') }}'; this.alt='Resim Yüklenemedi';">
+                        {% else %}
+                             <img src="{{ url_for('static', filename='img/profile-placeholder.png') }}" alt="İlişkili Yüz ID: {{ face.id }}">
+                        {% endif %}
+
+                        {% if face.risk_level %}
+                             {% set risk_class = 'risk-low' %}
+                             {% if face.risk_level == 2 %}{% set risk_class = 'risk-medium' %}
+                             {% elif face.risk_level == 3 %}{% set risk_class = 'risk-high' %}
+                             {% elif face.risk_level == 4 %}{% set risk_class = 'risk-critical' %}
+                             {% endif %}
+                            <span class="badge-overlay risk-badge {{ risk_class }}">
+                                {{ ['?', 'Düşük', 'Orta', 'Yüksek', 'Kritik'][face.risk_level] }}
+                            </span>
+                        {% endif %}
+                    </div>
+                    <div class="face-card-body">
+                        <div class="face-title">#{{ face.id }}</div>
+                        <div class="face-info mb-2">
+                           <i class="fas fa-eye me-1"></i> {{ face.co_occurrence }} kez görüldü (Hedef ile)
+                        </div>
+
+                        {% if face.first_seen_domain %}
+                        <div class="face-info mb-2">
+                           <i class="fas fa-globe me-1 text-gray-500"></i> İlk Görülme: {{ face.first_seen_domain }}
+                        </div>
+                        {% endif %}
+
+                        {# Domain listesi gösterimi (eğer Adım 4'te toplandıysa) #}
+                        {# {% if face.domains and face.domains|length > 0 %}
+                        <div class="domains mb-2">
+                             <i class="fas fa-globe me-1 text-gray-500"></i>
+                            {% for domain in face.domains %}
+                                {% if loop.index <= 3 %}
+                                <span class="domains-badge">{{ domain }}</span>
+                                {% endif %}
+                            {% endfor %}
+                            {% if face.domains|length > 3 %}
+                            <span class="domains-badge">+{{ face.domains|length - 3 }}</span>
+                            {% endif %}
+                        </div>
+                        {% endif %} #}
+                    </div>
+                     <div class="face-card-footer d-flex justify-content-between">
+                        <a href="{{ url_for('web.face_details', face_id=face.id) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-info-circle"></i> Detay
+                        </a>
+                        <a href="{{ url_for('web.face_relationship_details', face_id=face.id, target_face_id=target_face.id) }}" class="btn btn-sm btn-outline-primary">
+                           <i class="fas fa-images"></i> Görseller
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i> Bu kişi ile ilişkili başka yüz bulunamadı (veya sadece kendiyle aynı görsellerde yer alıyor).
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Yüzlerin gösterilmesi için yardımcı fonksiyonlar
+    document.addEventListener('DOMContentLoaded', function() {
+        // Tüm yüz resimlerini işle
+        document.querySelectorAll('.img-container img').forEach(function(img) {
+            img.addEventListener('load', function() {
+                const container = this.parentElement;
+                const faceboxElement = container.querySelector('.facebox-data');
+                
+                if (faceboxElement) {
+                    const facebox = JSON.parse(faceboxElement.getAttribute('data-facebox'));
+                    if (facebox && facebox.length === 4) {
+                        highlightFace(this, facebox);
+                    }
+                }
+            });
+            
+            // Yükleme hatası durumunda
+            img.addEventListener('error', function() {
+                this.style.display = 'none';
+                const container = this.parentElement;
+                container.innerHTML += '<i class="fas fa-image-slash" style="font-size: 3rem; color: #d1d3e2;"></i>';
+            });
+        });
+    });
+    
+    // Yüz kutucuğunu vurgulamak için
+    function highlightFace(img, facebox) {
+        // Eğer FaceBox verisi varsa, bir canvas oluşturup yüzü vurgula
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Canvas boyutlarını ayarla
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        
+        // Görseli çiz
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        // Yüz kutucuğunu çiz
+        ctx.strokeStyle = '#00a8ff';
+        ctx.lineWidth = 3;
+        
+        // FaceBox formatı: [x1, y1, x2, y2]
+        const x = facebox[0];
+        const y = facebox[1];
+        const width = facebox[2] - facebox[0];
+        const height = facebox[3] - facebox[1];
+        
+        ctx.strokeRect(x, y, width, height);
+        
+        // Canvas'ı görselin üzerine yerleştir
+        img.src = canvas.toDataURL('image/jpeg');
+    }
+</script>
+{% endblock %} 

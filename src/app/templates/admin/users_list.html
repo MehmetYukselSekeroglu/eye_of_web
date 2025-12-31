@@ -1,0 +1,104 @@
+{% extends "admin/admin_base.html" %}
+
+{% block title %}{{ title }} - Admin Paneli{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">{{ title }}</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin Paneli</a></li>
+        <li class="breadcrumb-item active">{{ title }}</li>
+    </ol>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-table me-1"></i>
+            Kullanıcı Listesi
+            <a href="{{ url_for('admin.add_user') }}" class="btn btn-primary btn-sm float-end"> 
+                <i class="fas fa-plus me-1"></i> Yeni Kullanıcı Ekle
+            </a>
+        </div>
+        <div class="card-body">
+            {% if users %}
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover" id="usersTable" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Kullanıcı Adı</th>
+                                <th>Email</th>
+                                <th>Adı</th>
+                                <th>Aktif</th>
+                                <th>Admin</th>
+                                <th>Sahip</th>
+                                <th>Demo</th>
+                                <th>Oluşturma Tarihi</th>
+                                <th>Son Giriş</th>
+                                <th>İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.email or '-' }}</td>
+                                <td>{{ user.name or '-' }}</td>
+                                <td><span class="badge {{ 'bg-success' if user.is_active else 'bg-danger' }}">{{ 'Evet' if user.is_active else 'Hayır' }}</span></td>
+                                <td><span class="badge {{ 'bg-success' if user.is_admin else 'bg-secondary' }}">{{ 'Evet' if user.is_admin else 'Hayır' }}</span></td>
+                                <td><span class="badge {{ 'bg-success' if user.is_owner else 'bg-secondary' }}">{{ 'Evet' if user.is_owner else 'Hayır' }}</span></td>
+                                <td><span class="badge {{ 'bg-warning' if user.is_demo else 'bg-info' }}">{{ 'Evet' if user.is_demo else 'Hayır' }}</span></td>
+                                <td>{{ user.create_date.strftime('%d.%m.%Y %H:%M') if user.create_date else '-' }}</td>
+                                <td>{{ user.last_login.strftime('%d.%m.%Y %H:%M') if user.last_login else '-' }}</td>
+                                <td>
+                                    <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i> Düzenle</a>
+                                    
+                                    {# Silme Butonu Formu #}
+                                    {% if user.id != session.user_id and not user.is_owner %}
+                                        <form method="POST" action="{{ url_for('admin.delete_user_action', user_id=user.id) }}" style="display: inline-block;" onsubmit="return confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}"/> 
+                                            <button type="submit" class="btn btn-sm btn-outline-danger ms-1"><i class="fas fa-trash"></i> Sil</button>
+                                        </form>
+                                    {% else %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger ms-1" disabled><i class="fas fa-trash"></i> Sil</button>
+                                    {% endif %}
+
+                                    {# --- Aktifleştirme/Dondurma Butonu Formu --- #}
+                                    {% if user.id != session.user_id %}
+                                        <form method="POST" action="{{ url_for('admin.toggle_user_activation_action', user_id=user.id) }}" style="display: inline-block;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}"/>
+                                            <button type="submit" class="btn btn-sm {{ 'btn-outline-secondary' if user.is_active else 'btn-outline-success' }} ms-1">
+                                                <i class="fas {{ 'fa-toggle-off' if user.is_active else 'fa-toggle-on' }}"></i> {{ 'Dondur' if user.is_active else 'Aktif Et' }}
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        {# Kendini dondurma butonu pasif #}
+                                         <button type="button" class="btn btn-sm btn-outline-secondary ms-1" disabled>
+                                             <i class="fas fa-toggle-off"></i> Dondur
+                                         </button>
+                                    {% endif %}
+                                    {# --- Buton Bitti --- #}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info" role="alert">
+                    Gösterilecek kullanıcı bulunamadı.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Gerekirse DataTables gibi kütüphaneler için scriptler eklenebilir -->
+<!-- <script>
+    $(document).ready(function() {
+        $('#usersTable').DataTable();
+    });
+</script> -->
+{% endblock %} 

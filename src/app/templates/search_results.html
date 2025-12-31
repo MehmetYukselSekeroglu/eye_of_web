@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if original_face %}
+        Benzer Yüz Arama Sonuçları
+    {% else %}
+        Arama Sonuçları
+    {% endif %}
+{% endblock %}
+
+{% block styles %}
+<style>
+    .filter-badge {
+        font-size: 0.85rem;
+        padding: 0.35rem 0.65rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .result-item {
+        transition: all 0.2s ease;
+        border-radius: 0.5rem;
+        border: none;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.05);
+        margin-bottom: 1rem;
+    }
+    
+    .result-item:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    }
+    
+    .face-thumbnail {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 0.5rem;
+    }
+    
+    .result-domain {
+        font-weight: 600;
+        color: #0d6efd;
+    }
+    
+    .result-date {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .result-risk {
+        font-weight: 600;
+    }
+    
+    .risk-low {
+        color: #198754;
+    }
+    
+    .risk-medium {
+        color: #fd7e14;
+    }
+    
+    .risk-high {
+        color: #dc3545;
+    }
+    
+    .risk-critical {
+        color: #dc3545;
+        font-weight: 700;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    
+    {% if original_face %}
+        <h2>Benzer Yüz Arama Sonuçları</h2>
+        <p><strong>Kaynak Yüz:</strong> 
+            {% if original_face.name %}
+                {{ original_face.name }} (ID: {{ params.face_id }})
+            {% else %}
+                Yüz ID: {{ params.face_id }}
+            {% endif %}
+             - <a href="{{ url_for('web.face_details', face_id=params.face_id) }}">Detayları Gör</a>
+        </p>
+        <p><strong>Benzerlik Eşiği:</strong> {{ params.threshold }}</p>
+        
+        <!-- Benzer Yüz Arama PDF İndirme Düğmesi -->
+        {% if results %}
+        <div class="mb-3">
+            <a href="{{ url_for('web.download_similar_search_report') }}" class="btn btn-success btn-sm" target="_blank">
+                <i class="fas fa-file-pdf"></i> PDF Raporu İndir
+            </a>
+        </div>
+        {% endif %}
+        
+    {% else %}
+        <h2>Arama Sonuçları</h2>
+        {# Diğer arama türleri için parametreleri göster (varsa) #}
+        {% if params %}
+            <p><strong>Arama Kriterleri:</strong>
+                {% for key, value in params.items() %}
+                    {% if value %}
+                        <span class="badge bg-secondary">{{ key }}: {{ value }}</span>
+                    {% endif %}
+                {% endfor %}
+            </p>
+            {# !!! TODO: Normal arama için PDF indirme düğmesi buraya eklenebilir !!! #}
+            {# Bunun için /search rotasının sonuçları session'a kaydetmesi ve #}
+            {# /download/text_search_report gibi yeni bir rota oluşturulması gerekir. #}
+        {% endif %}
+    {% endif %}
+
+    {# Display results count and pagination info #}
+    {% if search_performed and total > 0 %}
+        <div class="alert alert-light small" role="alert">
+            Sayfa {{ page }} / {{ total_pages }} (Toplam {{ total }} sonuç bulundu)
+        </div>
+    {% endif %}
+
+    {% if results %}
+        <div class="row">
+            {% for result in results %}
+                {# Benzer yüz aramasında orijinal yüzü sonuçlarda gösterme (opsiyonel, route'da zaten yapılıyor olabilir) #}
+                {% if not original_face or result.id != params.face_id %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        {% if result.use_default_image %}
+                            <img src="{{ url_for('static', filename='images/default-profile.png') }}" class="card-img-top result-image" alt="Varsayılan Resim">
+                             {% if result.image_error %}
+                                <div class="alert alert-warning small p-1 m-1" role="alert">
+                                    Resim yüklenemedi: {{ result.image_error }}
+                                </div>
+                            {% endif %}
+                        {% elif result.image_data %}
+                            {# <img src="data:image/jpeg;base64,{{ result.image_data }}" class="card-img-top result-image" alt="Tespit Edilen Yüz"> #}
+                            <img src="data:{{ result.image_mime_type | default('image/jpeg') }};base64,{{ result.image_data }}" class="card-img-top result-image" alt="Tespit Edilen Yüz"
+                                 onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/default-profile.png') }}'; this.alt='Resim Yüklenemedi';">
+                         {% elif result.image_url and result.image_url|length > 0 %} {# Eğer base64 yoksa ve URL geçerliyse yüklemeyi dene #}
+                            <img src="{{ result.image_url }}" class="card-img-top result-image" alt="Tespit Edilen Yüz (URL)"
+                                 onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/default-profile.png') }}'; this.alt='Resim Yüklenemedi (URL)';">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='images/default-profile.png') }}" class="card-img-top result-image" alt="Resim Yok">
+                             <div class="alert alert-info small p-1 m-1" role="alert">
+                                Resim URL'si bulunamadı.
+                            </div>
+                        {% endif %}
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">
+                                {% if result.name %}
+                                    {{ result.name }}
+                                {% else %}
+                                    Yüz ID: {{ result.id | default('N/A') }}
+                                {% endif %}
+                                {# Kaynak etiketi #}
+                                {% if result.source == 'whitelist' %}
+                                    <span class="badge bg-success">Beyaz Liste</span>
+                                {% elif result.source == 'egm' %}
+                                    <span class="badge bg-danger">EGM</span>
+                                {% endif %}
+                            </h5>
+                            <p class="card-text small">
+                                {% if result.similarity is defined %}
+                                    <strong>Benzerlik:</strong> {{ "%.2f"|format(result.similarity * 100) }}%<br>
+                                {% endif %}
+                                {% if result.detection_score %}
+                                    <strong>Tespit Skoru:</strong> {{ "%.2f"|format(result.detection_score) }}<br>
+                                {% endif %}
+                                <strong>Cinsiyet/Yaş:</strong> 
+                                {% if result.gender %}
+                                    {{ result.gender }} 
+                                {% else %}
+                                    Bilinmiyor
+                                {% endif %}
+                                / 
+                                {% if result.age %}
+                                    {{ result.age }}
+                                {% else %}
+                                    Bilinmiyor
+                                {% endif %}<br>
+                                {% if result.image_url %}
+                                    <a href="{{ result.image_url }}" target="_blank" class="small-link">Resim URL</a> <br>
+                                {% endif %}
+                                {% if result.source_url %}
+                                    <a href="{{ result.source_url }}" target="_blank" class="small-link">Kaynak URL</a>
+                                {% endif %}
+                                {# Diğer arama türleri için ek bilgiler buraya eklenebilir #}
+                                {# Örneğin, normal aramada bulunan sayfa başlığı vs. #}
+                                {% if result.page_title %}
+                                    <br><strong>Sayfa Başlığı:</strong> {{ result.page_title }}
+                                {% endif %}
+                                {% if result.timestamp %}
+                                    <br><strong>Tespit Zamanı:</strong> {{ result.timestamp.strftime('%d.%m.%Y %H:%M') if result.timestamp else 'N/A' }}
+                                {% endif %}
+                            </p>
+                            {# Detaylar için link #}
+                             {% if result.source != 'whitelist' and result.source != 'egm' and result.id %}
+                                <a href="{{ url_for('web.face_details', face_id=result.id) }}" class="btn btn-primary btn-sm mt-auto">Detayları Gör</a>
+                             {% elif result.source == 'whitelist' %}
+                                <span class="text-muted">Beyaz Liste Kaydı</span>
+                             {% elif result.source == 'egm' %}
+                                <span class="text-muted">EGM Kaydı</span>
+                             {% else %}
+                                <span class="text-muted small">Detay linki yok</span>
+                             {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {# --- Pagination Controls --- #}
+        {% if total_pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {# Previous Page Link #}
+                <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('web.search', page=page-1, **params) }}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                        <span class="sr-only">Önceki</span>
+                    </a>
+                </li>
+
+                {# Page Number Links (simplified example) #}
+                {% set start_page = [1, page - 2] | max %}
+                {% set end_page = [total_pages, page + 2] | min %}
+
+                {% if start_page > 1 %}
+                    <li class="page-item"><a class="page-link" href="{{ url_for('web.search', page=1, **params) }}">1</a></li>
+                    {% if start_page > 2 %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endif %}
+
+                {% for p in range(start_page, end_page + 1) %}
+                    <li class="page-item {% if p == page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('web.search', page=p, **params) }}">{{ p }}</a>
+                    </li>
+                {% endfor %}
+
+                {% if end_page < total_pages %}
+                    {% if end_page < total_pages - 1 %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                    <li class="page-item"><a class="page-link" href="{{ url_for('web.search', page=total_pages, **params) }}">{{ total_pages }}</a></li>
+                {% endif %}
+
+                {# Next Page Link #}
+                <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('web.search', page=page+1, **params) }}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                        <span class="sr-only">Sonraki</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+        {# --- End Pagination Controls --- #}
+
+    {% else %}
+        <div class="alert alert-info mt-3" role="alert">
+            Bu kriterlere uygun sonuç bulunamadı.
+        </div>
+    {% endif %}
+</div>
+
+<style>
+.small-link {
+    font-size: 0.8em;
+    word-break: break-all; /* Uzun URL'lerin taşmasını engelle */
+}
+.result-image {
+    height: 200px; /* Resim yüksekliğini sabitle */
+    object-fit: cover; /* Resmin orantısını koruyarak alanı kapla */
+}
+.filter-badge {
+    font-size: 0.85rem;
+    padding: 0.35rem 0.65rem;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.result-risk {
+    font-weight: 600;
+}
+.risk-low { color: #198754; }
+.risk-medium { color: #fd7e14; }
+.risk-high { color: #dc3545; }
+.risk-critical { color: #dc3545; font-weight: 700; }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Yüz kartlarının yükleme düğmelerine tıklama olaylarını ekle
+    document.addEventListener('DOMContentLoaded', function() {
+        // Tüm yüzü göster butonlarını seç
+        const loadFaceButtons = document.querySelectorAll('.load-face-btn');
+        
+        // Her butona tıklama olayı ekle
+        loadFaceButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const faceId = this.getAttribute('data-face-id');
+                const domain = this.getAttribute('data-domain');
+                
+                // Yükleniyor göstergesini göster
+                const loadingIndicator = document.getElementById(`loading-${faceId}`);
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'flex';
+                }
+                
+                // İlgili yüzü getir
+                loadFaceForDomain(faceId, domain);
+            });
+        });
+    });
+    
+    // Belirli bir domain için yüzü getir
+    function loadFaceForDomain(faceId, domain) {
+        // Form verisi oluştur
+        const formData = new FormData();
+        formData.append('domain', domain);
+        formData.append('face_id', faceId);
+        
+        // CSRF token
+        formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+        
+        // Yükleniyor göstergesini göster
+        const loadingIndicator = document.getElementById(`loading-${faceId}`);
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'flex';
+        }
+        
+        console.log(`Yüz yükleniyor: ID=${faceId}, Domain=${domain}`);
+        
+        // Fetch API ile istek gönder
+        fetch('{{ url_for("web.fetch_domain_faces") }}', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Yükleniyor göstergesini gizle
+            const loadingIndicator = document.getElementById(`loading-${faceId}`);
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+            
+            console.log(`Yüz verisi alındı:`, data);
+            
+            if (data.success && data.faces && data.faces.length > 0) {
+                // İlk yüzü al (ilgili yüz)
+                const face = data.faces[0];
+                
+                if (face.image_data) {
+                    // Resmi kutusuna yerleştir
+                    const faceContainer = document.getElementById(`face-container-${faceId}`);
+                    if (faceContainer) {
+                        // Canvas ile yüz kutucuğu çizimi
+                        faceContainer.innerHTML = `
+                            <div class="position-relative img-container">
+                                <canvas id="face-canvas-${faceId}" class="img-fluid rounded" width="500" height="500"></canvas>
+                                <div class="position-absolute bottom-0 end-0 m-2">
+                                    <span class="badge bg-success"><i class="fas fa-check me-1"></i> Yüz ${face.face_id}</span>
+                                </div>
+                            </div>`;
+                        
+                        // Görüntüyü yükle ve facebox ile çiz
+                        const canvas = document.getElementById(`face-canvas-${faceId}`);
+                        if (canvas) {
+                            const ctx = canvas.getContext('2d');
+                            const img = new Image();
+                            img.onload = function() {
+                                // Canvas boyutlarını görüntüye göre ayarla
+                                const maxWidth = 500;
+                                const maxHeight = 500;
+                                let width = img.width;
+                                let height = img.height;
+                                
+                                // Görüntüyü canvas boyutlarına sığdır
+                                if (width > height) {
+                                    if (width > maxWidth) {
+                                        height = height * (maxWidth / width);
+                                        width = maxWidth;
+                                    }
+                                } else {
+                                    if (height > maxHeight) {
+                                        width = width * (maxHeight / height);
+                                        height = maxHeight;
+                                    }
+                                }
+                                
+                                canvas.width = width;
+                                canvas.height = height;
+                                
+                                // Görüntüyü çiz
+                                ctx.drawImage(img, 0, 0, width, height);
+                                
+                                // Facebox bilgisi varsa yüz kutucuğunu çiz
+                                if (face.facebox && face.facebox.length >= 4) {
+                                    // Facebox [x1, y1, x2, y2] formatında
+                                    const x = face.facebox[0] * width;
+                                    const y = face.facebox[1] * height;
+                                    const w = (face.facebox[2] - face.facebox[0]) * width;
+                                    const h = (face.facebox[3] - face.facebox[1]) * height;
+                                    
+                                    // Yüz kutucuğunu çiz
+                                    ctx.strokeStyle = '#00FF00';
+                                    ctx.lineWidth = 2;
+                                    ctx.strokeRect(x, y, w, h);
+                                }
+                            };
+                            img.src = `data:image/jpeg;base64,${face.image_data}`;
+                        }
+                    } else {
+                        console.error(`Face container not found for ID: face-container-${faceId}`);
+                    }
+                } else {
+                    console.warn(`No image data available for face ID: ${faceId}`);
+                    // Hata mesajı gösterme
+                    const faceContainer = document.getElementById(`face-container-${faceId}`);
+                    if (faceContainer) {
+                        faceContainer.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i> 
+                                Yüz resmi verisi bulunamadı.
+                            </div>`;
+                    }
+                }
+            } else {
+                console.warn(`No face data returned or request failed for face ID: ${faceId}`, data);
+                // Hata mesajı gösterme
+                const faceContainer = document.getElementById(`face-container-${faceId}`);
+                if (faceContainer) {
+                    faceContainer.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i> 
+                            ${data.message || 'Yüz resmi bulunamadı.'}
+                        </div>`;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching face data:', error);
+            // Yükleniyor göstergesini gizle
+            const loadingIndicator = document.getElementById(`loading-${faceId}`);
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+            
+            // Hata mesajı gösterme
+            const faceContainer = document.getElementById(`face-container-${faceId}`);
+            if (faceContainer) {
+                faceContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-times-circle me-2"></i> 
+                        Yüz resmi yüklenirken bir hata oluştu: ${error.message}
+                    </div>`;
+            }
+        });
+    }
+</script>
+{% endblock %}

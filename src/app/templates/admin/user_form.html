@@ -1,0 +1,164 @@
+{% extends "admin/admin_base.html" %}
+
+{% block title %}{{ form_title }} - Admin Paneli{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">{{ form_title }}</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin Paneli</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.list_users') }}">Kullanıcı Yönetimi</a></li>
+        <li class="breadcrumb-item active">{{ form_title }}</li>
+    </ol>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas {{ 'fa-user-edit' if user else 'fa-user-plus' }} me-1"></i>
+            Kullanıcı Bilgileri
+        </div>
+        <div class="card-body">
+            {# Flask-WTF formunu kullan #}
+            <form method="POST" action="{{ form_action_url }}" novalidate>
+                {{ form.hidden_tag() }} {# CSRF token ve diğer gizli alanlar için #}
+                
+                <div class="mb-3">
+                    {{ form.username.label(class="form-label") }} 
+                    {% if form.username.flags.required %}<span class="text-danger">*</span>{% endif %}
+                    {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="Örn: kullanici123") }}
+                    {% if form.username.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.username.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    {{ form.email.label(class="form-label") }}
+                    {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), placeholder="opsiyonel@example.com") }}
+                     {% if form.email.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.email.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+               </div>
+
+                <div class="mb-3">
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), placeholder="Ad Soyad (Opsiyonel)") }}
+                     {% if form.name.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.name.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+               </div>
+
+                <div class="mb-3">
+                    {{ form.password.label(class="form-label") }} 
+                    {% if form.password.flags.required %}<span class="text-danger">*</span>{% endif %}
+                    {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else "")) }}
+                    {% if user %}<small class="form-text text-muted">Değiştirmek istemiyorsanız boş bırakın.</small>{% endif %}
+                     {% if form.password.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.password.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+               </div>
+
+                <div class="mb-3">
+                    {{ form.confirm_password.label(class="form-label") }} 
+                    {% if form.confirm_password.flags.required %}<span class="text-danger">*</span>{% endif %}
+                    {{ form.confirm_password(class="form-control" + (" is-invalid" if form.confirm_password.errors else "")) }}
+                     {% if form.confirm_password.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.confirm_password.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+               </div>
+                
+                <h5 class="mt-4">Yetkiler ve Durum</h5>
+                <div class="form-check mb-2">
+                    {{ form.is_active(class="form-check-input" + (" is-invalid" if form.is_active.errors else "")) }}
+                    {{ form.is_active.label(class="form-check-label") }}
+                     {% if form.is_active.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.is_active.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="form-check mb-2">
+                    {{ form.is_admin(class="form-check-input" + (" is-invalid" if form.is_admin.errors else "")) }}
+                    {{ form.is_admin.label(class="form-check-label") }}
+                     {% if form.is_admin.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.is_admin.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                 <div class="form-check mb-3">
+                     {{ form.is_owner(class="form-check-input" + (" is-invalid" if form.is_owner.errors else "")) }}
+                    {{ form.is_owner.label(class="form-check-label") }}
+                     {% if form.is_owner.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.is_owner.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <h5 class="mt-4">Demo ve Abonelik Bilgileri</h5>
+                <div class="form-check mb-2">
+                    {{ form.is_demo(class="form-check-input" + (" is-invalid" if form.is_demo.errors else "")) }}
+                    {{ form.is_demo.label(class="form-check-label") }}
+                     {% if form.is_demo.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.is_demo.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        {{ form.demo_start.label(class="form-label") }}
+                        {{ form.demo_start(class="form-control" + (" is-invalid" if form.demo_start.errors else "")) }}
+                         {% if form.demo_start.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.demo_start.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                         {{ form.demo_end.label(class="form-label") }}
+                        {{ form.demo_end(class="form-control" + (" is-invalid" if form.demo_end.errors else "")) }}
+                         {% if form.demo_end.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.demo_end.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                   </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                         {{ form.subscription_start_date.label(class="form-label") }}
+                        {{ form.subscription_start_date(class="form-control" + (" is-invalid" if form.subscription_start_date.errors else "")) }}
+                         {% if form.subscription_start_date.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.subscription_start_date.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                   </div>
+                    <div class="col-md-6 mb-3">
+                         {{ form.subscription_end_date.label(class="form-label") }}
+                        {{ form.subscription_end_date(class="form-control" + (" is-invalid" if form.subscription_end_date.errors else "")) }}
+                         {% if form.subscription_end_date.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.subscription_end_date.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                   </div>
+                </div>
+
+                {{ form.submit(class="btn btn-primary") }} {# Submit butonu #}
+                <a href="{{ url_for('admin.list_users') }}" class="btn btn-secondary">İptal</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

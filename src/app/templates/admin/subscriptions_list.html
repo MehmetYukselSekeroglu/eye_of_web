@@ -1,0 +1,97 @@
+{% extends "admin/admin_base.html" %}
+
+{% block title %}{{ title }} - Admin Paneli{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">{{ title }}</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin Paneli</a></li>
+        <li class="breadcrumb-item active">{{ title }}</li>
+    </ol>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-list-alt me-1"></i>
+            Kullanıcı Abonelik Listesi (Kalan Süreye Göre Sıralı)
+            {# Yeni abonelik ekleme kullanıcı ekleme/düzenleme üzerinden yapılıyor #}
+        </div>
+        <div class="card-body">
+            {% if subscriptions %} {# Bu değişken adı route'dan `subscriptions` olarak geliyor, aslında `User` nesnelerinin listesi #}
+                {% set active_subscription_users = subscriptions | selectattr('subscription_start_date') | list %}
+                {% if active_subscription_users %}
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover" id="subscriptionsTable" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>Kullanıcı Adı</th>
+                                <th>Ad Soyad</th>
+                                <th>Abonelik Başlangıç</th>
+                                <th>Abonelik Bitiş</th>
+                                <th class="text-center">Kalan Gün</th>
+                                <th class="text-center">Abonelik Aktif</th>
+                                <th>İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in subscriptions %}
+                            {# Sadece abonelik tarihi olanları veya kalan günü olanları gösterelim - sıralama zaten bunları üste taşıdı #}
+                            {% if user.subscription_start_date or user.subscription_remaining_days is not none %}
+                                <tr class="{{ 'table-warning' if user.subscription_remaining_days is not none and user.subscription_remaining_days <= 7 and user.is_subscription_active else '' }} {{ 'table-danger' if not user.is_subscription_active and user.subscription_remaining_days == 0 and user.subscription_end_date else '' }}">
+                                    <td>
+                                        <a href="{{ url_for('admin.edit_user', user_id=user.id) }}">{{ user.username }}</a>
+                                        {% if user.is_demo %}<span class="badge bg-info ms-1">Demo</span>{% endif %}
+                                    </td>
+                                    <td>{{ user.name or '-' }}</td>
+                                    <td>{{ user.subscription_start_date.strftime('%d.%m.%Y %H:%M') if user.subscription_start_date else '-' }}</td>
+                                    <td>{{ user.subscription_end_date.strftime('%d.%m.%Y %H:%M') if user.subscription_end_date else '-' }}</td>
+                                    <td class="text-center">
+                                        {% if user.subscription_remaining_days == 0 and not user.is_subscription_active and user.subscription_end_date %}
+                                            <span class="badge bg-secondary">Süresi Doldu</span>
+                                        {% elif user.subscription_remaining_days is not none %}
+                                            {{ user.subscription_remaining_days }} gün
+                                        {% elif user.subscription_start_date and not user.subscription_end_date %}
+                                            <span class="badge bg-primary">Ucu Açık</span> {# Bitiş tarihi olmayan abonelikler için #}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center"><span class="badge {{ 'bg-success' if user.is_subscription_active else 'bg-danger' }}">{{ 'Evet' if user.is_subscription_active else 'Hayır' }}</span></td>
+                                    <td>
+                                        <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit me-1"></i>Kullanıcıyı Düzenle</a>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                    <div class="alert alert-info" role="alert">
+                        Aktif veya tanımlı aboneliği olan kullanıcı bulunamadı.
+                        Kullanıcıları <a href="{{ url_for('admin.list_users') }}" class="alert-link">buradan</a> düzenleyerek abonelik ekleyebilirsiniz.
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info" role="alert">
+                    Sistemde kayıtlı kullanıcı bulunamadı.
+                    <a href="{{ url_for('admin.add_user') }}" class="alert-link">Yeni kullanıcı ekleyebilirsiniz.</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# Tarih formatlama için custom filter (app/__init__.py içine eklenebilir) #}
+{# 
+@app.template_filter('format_datetime_iso')
+def format_datetime_iso(value, format='%d.%m.%Y %H:%M'):
+    if value:
+        return datetime.fromisoformat(value).strftime(format)
+    return ""
+#}
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Gerekirse DataTables gibi kütüphaneler için scriptler eklenebilir -->
+{% endblock %} 

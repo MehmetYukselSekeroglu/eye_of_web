@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+
+{% block title %}Yüz Detayları - ID: {{ face.id }}{% endblock %}
+
+{% block styles %}
+<style>
+    .detail-card {
+        border: none;
+        box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.1);
+        border-radius: 0.5rem;
+    }
+    
+    .face-image-container {
+        position: relative;
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+    
+    .face-image {
+        max-width: 100%;
+        max-height: 300px;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+    }
+    
+    .detail-title {
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .detail-section {
+        margin-bottom: 2rem;
+    }
+    
+    .detail-label {
+        font-weight: 600;
+        color: #6c757d;
+    }
+    
+    .domain-link {
+        word-break: break-all;
+    }
+    
+    .risk-label {
+        font-weight: 600;
+    }
+    
+    .risk-low {
+        color: #198754;
+    }
+    
+    .risk-medium {
+        color: #fd7e14;
+    }
+    
+    .risk-high {
+        color: #dc3545;
+    }
+    
+    .risk-critical {
+        color: #dc3545;
+        font-weight: 700;
+    }
+    
+    .similar-faces-container {
+        margin-top: 2rem;
+    }
+    
+    .similar-face {
+        transition: all 0.2s ease;
+    }
+    
+    .similar-face:hover {
+        transform: scale(1.05);
+    }
+    
+    .similar-face-img {
+        width: 100%;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 0.35rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('web.index') }}">Ana Sayfa</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('web.search') }}">Arama</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Yüz Detayları</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Sol Taraf - Resim -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Yüz Görseli</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="face-image-container">
+                        {% if face.image_data %}
+                        {# <img src="data:image/jpeg;base64,{{ face.image_data }}" class="face-image rounded" id="faceImage" alt="Yüz Görseli" onerror="this.src='{{ url_for('static', filename='img/profile-placeholder.png') }}';"> #}
+                        <img src="data:{{ face.image_mime_type | default('image/jpeg') }};base64,{{ face.image_data }}" class="face-image rounded" id="faceImage" alt="Yüz Görseli" 
+                             onerror='this.onerror=null; this.src="{{ url_for("static", filename="img/profile-placeholder.png") }}"; this.alt="Resim Yüklenemedi";'>
+                        {% elif face.full_image_url %}
+                        <img src="{{ face.full_image_url }}" class="face-image rounded" id="faceImage" alt="Yüz Görseli" onerror="this.src='{{ url_for('static', filename='img/profile-placeholder.png') }}';">
+                        {% elif face.use_default_image %}
+                        <img src="{{ url_for('static', filename='img/profile-placeholder.png') }}" class="face-image rounded" id="faceImage" alt="Varsayılan Yüz Görseli">
+                        {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i> Görsel bulunamadı veya yüklenemedi.
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mt-2">
+                            {% if face.full_image_url %}
+                            <a href="{{ face.full_image_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-external-link-alt me-1"></i> Orijinal Görseli Aç
+                            </a>
+                            {% endif %}
+                            
+                            {% if face.facebox %}
+                            <button type="button" id="toggleBboxBtn" class="btn btn-sm btn-outline-success ms-1" onclick="toggleBoundingBox()">
+                                <i class="fas fa-border-style me-1"></i> Yüz Kutusunu Göster
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if face.image_title %}
+                    <div class="mt-3">
+                        <h6>Görsel Başlığı:</h6>
+                        <p>{{ face.image_title }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Temel Özellikler -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Temel Özellikler</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-fingerprint"></i> Yüz ID:</span>
+                            <strong>{{ face.id }}</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-venus-mars"></i> Cinsiyet:</span>
+                            <strong>{{ "Erkek" if face.gender else "Kadın" }}</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-birthday-cake"></i> Tahmini Yaş:</span>
+                            <strong>{{ face.age }}</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-chart-bar"></i> Tespit Skoru:</span>
+                            <div class="progress" style="width: 60%;">
+                                <div class="progress-bar" role="progressbar" style="width: {{ face.detection_score*100 }}%;" aria-valuenow="{{ face.detection_score*100 }}" aria-valuemin="0" aria-valuemax="100">{{ "%.0f"|format(face.detection_score*100) }}%</div>
+                            </div>
+                        </li>
+                        {% if face.facebox %}
+                        <li class="list-group-item">
+                            <span><i class="fas fa-border-all"></i> Sınırlayıcı Kutu:</span>
+                            <div class="text-muted small">
+                                [{{ face.facebox[0] }}, {{ face.facebox[1] }}, {{ face.facebox[2] }}, {{ face.facebox[3] }}]
+                            </div>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sağ Taraf - Detaylar -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Tespit Bilgileri</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-globe"></i> Kaynak Site</h6>
+                            <ul class="list-group list-group-flush mb-4">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Alan Adı:</span>
+                                    <strong>{{ face.domain }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Protokol:</span>
+                                    <strong>{{ face.protocol }}</strong>
+                                </li>
+                                {% if face.url_path %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>URL Yolu:</span>
+                                    <span class="text-truncate" style="max-width: 200px;" title="{{ face.url_path }}">{{ face.url_path }}</span>
+                                </li>
+                                {% endif %}
+                                {% if face.url_etc %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>URL Parametreleri:</span>
+                                    <span class="text-truncate" style="max-width: 200px;" title="{{ face.url_etc }}">{{ face.url_etc }}</span>
+                                </li>
+                                {% endif %}
+                                {% if face.source_url %}
+                                <li class="list-group-item">
+                                    <div class="d-grid gap-2">
+                                        <a href="{{ face.source_url }}" target="_blank" class="btn btn-outline-secondary btn-sm mt-2">
+                                            <i class="fas fa-external-link-alt"></i> Kaynağı Ziyaret Et
+                                        </a>
+                                    </div>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-image"></i> Görsel Bilgileri</h6>
+                            <ul class="list-group list-group-flush mb-4">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Görsel Alan Adı:</span>
+                                    <strong>{{ face.image_domain }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Görsel Protokolü:</span>
+                                    <strong>{{ face.image_protocol }}</strong>
+                                </li>
+                                {% if face.image_path %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Görsel Yolu:</span>
+                                    <span class="text-truncate" style="max-width: 200px;" title="{{ face.image_path }}">{{ face.image_path }}</span>
+                                </li>
+                                {% endif %}
+                            </ul>
+                            
+                            <h6><i class="fas fa-info-circle"></i> Sınıflandırma</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Risk Seviyesi:</span>
+                                    <span class="badge {% if face.risk_level == 'yüksek' %}badge-danger{% elif face.risk_level == 'orta' %}badge-warning{% else %}badge-info{% endif %} p-2">
+                                        {{ face.risk_level if face.risk_level else "Bilinmiyor" }}
+                                    </span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Kategori:</span>
+                                    <strong>{{ face.category if face.category else "Bilinmiyor" }}</strong>
+                                </li>
+                                {% if face.detection_date %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Tespit Tarihi:</span>
+                                    <strong>{{ face.detection_date.split('T')[0] }}</strong>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {% if face.all_sources and face.all_sources|length > 0 %}
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-sitemap me-2"></i>Bu Yüzün Tespit Edildiği Kaynaklar</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">Bu yüz, aşağıda listelenen {{ face.all_sources|length }} kaynakta tespit edilmiştir:</p>
+                    <ul class="list-group list-group-flush">
+                        {% for source_info in face.all_sources %}
+                        <li class="list-group-item ps-0 pe-0">
+                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                <div style="flex-grow: 1; min-width: 0;"> {# Linkin taşmaması için #}
+                                    {% if source_info.url %}
+                                        <a href="{{ source_info.url }}" target="_blank" class="domain-link text-truncate d-inline-block" style="max-width: 100%;" title="{{ source_info.url }}">{{ source_info.url }}</a>
+                                    {% else %}
+                                        <span class="text-muted">URL Bilgisi Yok</span>
+                                    {% endif %}
+                                </div>
+                                {% if source_info.detection_date %}
+                                    <small class="text-muted ms-2 text-nowrap">{{ source_info.detection_date.split('T')[0].replace('-', '.') if source_info.detection_date else 'Tarih Yok' }}</small>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% elif face.id %} {# face.id varsa ama all_sources yoksa veya boşsa #}
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-sitemap me-2"></i>Bu Yüzün Tespit Edildiği Kaynaklar</h5>
+                </div>
+                <div class="card-body">
+                    <p>Bu yüz için (mevcut ana kaynak dışında) ek tespit kaydı bulunamadı.</p>
+                </div>
+            </div>
+            {% endif %}
+            <!-- === YENİ BÖLÜM BİTTİ === -->
+
+            <!-- Benzer Yüzler -->
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Benzer Yüzleri Ara</h5>
+                </div>
+                <div class="card-body">
+                    <p>Bu yüze ve ilişkilerine dair daha derin analizler yapabilirsiniz.</p>
+                    <div class="mt-4 d-flex flex-wrap gap-2">
+                        <a href="{{ url_for('web.search_similar', face_id=face.id) }}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-search me-1"></i> Benzer Yüzleri Ara
+                        </a>
+                    </div>
+                    <small class="d-block mt-3 text-muted">
+                        * <strong>Benzer Yüzler:</strong> Sadece bu yüze benzeyenleri listeler.<br>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Benzer Yüzler Bölümü -->
+    {% if face.similar_faces and face.similar_faces|length > 0 %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <h4 class="detail-title"><i class="fas fa-users me-2"></i>Benzer Yüzler ({{ face.similar_faces|length }})</h4>
+            <div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-3 similar-faces-container">
+                {% for similar_face in face.similar_faces %}
+                <div class="col">
+                    <div class="card h-100 similar-face">
+                        <a href="{{ url_for('web.face_details', face_id=similar_face.id) }}">
+                        {% if similar_face.image_data %}
+                            <img src="data:{{ similar_face.image_mime_type | default('image/jpeg') }};base64,{{ similar_face.image_data }}" 
+                                 class="card-img-top similar-face-img" alt="Benzer Yüz {{ similar_face.id }}"
+                                 onerror='this.onerror=null; this.src="{{ url_for("static", filename="img/profile-placeholder.png") }}";'>
+                        {% elif similar_face.image_url %}
+                             <img src="{{ similar_face.image_url }}" class="card-img-top similar-face-img" alt="Benzer Yüz {{ similar_face.id }}"
+                                  onerror='this.onerror=null; this.src="{{ url_for("static", filename="img/profile-placeholder.png") }}";'>
+                        {% else %}
+                            <img src="{{ url_for('static', filename='img/profile-placeholder.png') }}" 
+                                 class="card-img-top similar-face-img" alt="Görsel Yok">
+                        {% endif %}
+                        </a>
+                        <div class="card-body p-2 text-center">
+                            <h6 class="card-title small mb-1">
+                                <a href="{{ url_for('web.face_details', face_id=similar_face.id) }}" class="text-decoration-none">ID: {{ similar_face.id }}</a>
+                            </h6>
+                            {% if similar_face.similarity_score %}
+                                <span class="badge bg-success">{{ "%.2f"|format(similar_face.similarity_score * 100) }}%</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+<script>
+    var originalImageSrc = '';
+    var showingBbox = false;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Orijinal görsel kaynağını sakla
+        var faceImg = document.getElementById('faceImage');
+        if (faceImg) {
+            originalImageSrc = faceImg.src;
+        }
+    });
+    
+    function toggleBoundingBox() {
+        var faceImg = document.getElementById('faceImage');
+        var bboxBtn = document.getElementById('toggleBboxBtn');
+        
+        if (!faceImg) return;
+        
+        if (showingBbox) {
+            // Orijinal görsele geri dön
+            faceImg.src = originalImageSrc;
+            bboxBtn.innerHTML = '<i class="fas fa-border-style me-1"></i> Yüz Kutusunu Göster';
+            showingBbox = false;
+        } else {
+            // Yüz kutusu çizilmiş görseli göster
+            fetch('/api/face/{{ face.id }}/draw_bbox')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Yüz kutusu çizilemedi');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success && data.image_data) {
+                        faceImg.src = data.image_data;
+                        bboxBtn.innerHTML = '<i class="fas fa-image me-1"></i> Orijinal Görseli Göster';
+                        showingBbox = true;
+                    } else {
+                        alert('Hata: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Hata:', error);
+                    alert('Yüz kutusu çizilemedi: ' + error.message);
+                });
+        }
+    }
+</script>
+{% endblock %} 

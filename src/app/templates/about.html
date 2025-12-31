@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Hakkında - {{ env_config.APP_NAME }}{% endblock %}
+
+{% block styles %}
+<style>
+    .about-header {
+        background: linear-gradient(to right, rgba(13, 110, 253, 0.8), rgba(0, 210, 255, 0.8)), url({{ url_for('static', filename='images/about_bg.jpg') }}) no-repeat center center;
+        background-size: cover;
+        padding: 5rem 1.5rem;
+        margin-bottom: 3rem;
+        border-bottom: 1px solid #dee2e6;
+        color: white;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
+    }
+    .about-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.9;
+    }
+    .feature-icon {
+        font-size: 3rem; /* Slightly larger */
+        color: #0d6efd;
+        margin-bottom: 1rem;
+    }
+    .feature-card {
+        background-color: #ffffff;
+        border: 1px solid #e9ecef;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+    }
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+    .timeline-item {
+        position: relative;
+        padding-left: 40px; /* Increased padding */
+        padding-bottom: 2rem; /* Increased spacing */
+        border-left: 3px solid #0d6efd;
+    }
+    .timeline-item:last-child {
+        border-left: 3px solid transparent; /* Hide line for last item */
+        padding-bottom: 0;
+    }
+    .timeline-item::before {
+        content: '\f058'; /* Font Awesome Check Circle */
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        position: absolute;
+        left: -12px; /* Adjust position */
+        top: 0;
+        width: 24px;
+        height: 24px;
+        background-color: white;
+        border: 3px solid #0d6efd;
+        color: #0d6efd;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 18px; /* Adjust for icon */
+        font-size: 12px; /* Icon size */
+    }
+    .section-divider {
+        border-top: 1px solid #dee2e6;
+        margin: 4rem 0;
+    }
+    .img-about {
+         max-height: 300px;
+         object-fit: cover;
+         border-radius: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="about-header text-center">
+    <div class="container">
+        <i class="fas fa-info-circle about-icon"></i>
+        <h1 class="display-4 fw-bold">{{ env_config.APP_NAME }}</h1>
+        <p class="lead fs-4 my-3">{{ env_config.SYSTEM_DESCRIPTION }}</p>
+        <p class="fs-5">Geliştiren: <strong>{{ env_config.VENDOR_NAME }}</strong></p>
+    </div>
+</div>
+
+<div class="container py-4">
+    <!-- Projenin Amacı ve Kapsamı -->
+    <section class="mb-5">
+        <h2 class="mb-4 text-center fw-bold">Misyonumuz: Açık Kaynak Veriden Anlam Çıkarmak</h2>
+        <div class="row align-items-center">
+            <div class="col-lg-7 order-lg-1">
+                <p class="fs-5">Dijital çağda, web üzerindeki devasa görsel veri akışı, özellikle güvenlik ve istihbarat alanlarında hem büyük bir potansiyel hem de zorlu bir analiz yükü oluşturmaktadır. <strong>{{ env_config.APP_NAME }}</strong>, bu zorluğun üstesinden gelmek için 2023 yılında hayata geçirilmiştir.</p>
+                <p>Temel misyonumuz, kamuya açık, açık kaynaklı web verilerinde bulunan yüz görüntülerini otomatik olarak toplamak, işlemek, analiz etmek ve bu dağınık veriler arasında kritik bağlantıları ortaya çıkarmaktır. Manuel analizin yetersiz kaldığı noktalarda, yapay zeka ve gelişmiş yüz tanıma teknolojilerini kullanarak:</p>
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2"><i class="fas fa-check-circle text-primary me-2"></i>Milyonlarca görsel arasından yüzleri yüksek hassasiyetle tespit ediyoruz.</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-primary me-2"></i>Tespit edilen yüzleri, ilişkili meta verilerle (kaynak, zaman, vb.) birlikte merkezi bir veritabanında indeksliyoruz.</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-primary me-2"></i>Benzerlik algoritmaları ve ilişki analizi araçlarıyla farklı zaman ve mekanlardaki yüzler arasındaki bağlantıları keşfediyoruz.</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-primary me-2"></i>Kullanıcılarımıza güçlü arama ve filtreleme yetenekleri sunarak, hedeflenen bilgilere hızla ulaşmalarını sağlıyoruz.</li>
+                </ul>
+                <p class="mt-3">Bu sayede, özellikle terörle mücadele, organize suçlar ve kamu güvenliği gibi kritik alanlarda faaliyet gösteren kurumlar için değerli, eyleme geçirilebilir istihbarat sağlamayı hedefliyoruz.</p>
+            </div>
+            <div class="col-lg-5 order-lg-0 text-center mb-4 mb-lg-0">
+                <img src="{{ url_for('static', filename='img/about_architecture.png') }}" class="img-fluid rounded shadow-sm img-about" alt="Sistem Mimarisi" onerror="this.style.display='none'; this.nextElementSibling.style.display='none';">
+                <!--<p class="text-muted small mt-2"><i>Veri Akışı ve Analiz Mimarisi (Örnek)</i></p>-->
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Proje Geçmişi -->
+    <section class="mb-5">
+        <h2 class="mb-5 text-center fw-bold">Gelişim Yolculuğumuz</h2>
+        <div class="timeline mx-auto" style="max-width: 800px;">
+            <div class="timeline-item">
+                <h5 class="fw-bold mb-1">2023 - Vizyon ve Başlangıç</h5>
+                <p class="mb-0 text-muted">Açık kaynak istihbaratının (OSINT) artan önemini ve görsel veri analizindeki boşluğu görerek {{ env_config.APP_NAME }} projesinin vizyonu oluşturuldu. Çekirdek teknolojiler araştırıldı ve ilk adımlar atıldı.</p>
+            </div>
+            <div class="timeline-item">
+                <h5 class="fw-bold mb-1">Geliştirme ve Prototipleme</h5>
+                <p class="mb-0 text-muted">Temel yüz tanıma motoru entegre edildi, veri toplama mekanizmaları tasarlandı ve ölçeklenebilir bir veritabanı mimarisi kuruldu. İlk prototiplerle saha testleri yapıldı.</p>
+            </div>
+            <div class="timeline-item">
+                <h5 class="fw-bold mb-1">{{ now.year }} - {{ env_config.APP_VERSION }} Lansmanı</h5>
+                <p class="mb-0 text-muted">Gelişmiş arama yetenekleri, kullanıcı dostu arayüz, detaylı analiz modülleri ve raporlama özellikleriyle mevcut sürüm kullanıma sunuldu.</p>
+            </div>
+            <div class="timeline-item">
+                <h5 class="fw-bold mb-1">Sürekli İyileştirme ve Gelecek</h5>
+                <p class="mb-0 text-muted">Algoritmalarımızı sürekli güncelliyor, yeni veri kaynakları entegre ediyor ve kullanıcı geri bildirimleriyle sistemi geliştiriyoruz. Hedefimiz, yapay zeka destekli analiz yeteneklerini daha da derinleştirmek ve proaktif güvenlik çözümleri sunmaktır.</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Temel Özellikler -->
+    <section class="mb-5">
+        <h2 class="mb-5 text-center fw-bold">Öne Çıkan Yetenekler</h2>
+        <div class="row">
+            <div class="col-lg-4 mb-4">
+                <div class="feature-card text-center">
+                    <i class="fas fa-robot feature-icon mb-3"></i>
+                    <h5 class="fw-bold">Akıllı Yüz Tespiti ve Tanıma</h5>
+                    <p class="text-muted">Gürültülü ve düşük kaliteli görsellerde dahi yüksek başarı oranıyla yüzleri tespit eder ve gelişmiş algoritmalarla kimliklendirme yapar.</p>
+                </div>
+            </div>
+            <div class="col-lg-4 mb-4">
+                <div class="feature-card text-center">
+                    <i class="fas fa-server feature-icon mb-3"></i>
+                    <h5>Ölçeklenebilir Veri Yönetimi</h5>
+                    <p class="text-muted">Milyarlarca yüz kaydını ve ilişkili veriyi barındırabilecek, hızlı sorgulamaya olanak tanıyan sağlam bir veritabanı altyapısı sunar.</p>
+                </div>
+            </div>
+            <div class="col-lg-4 mb-4">
+                <div class="feature-card text-center">
+                    <i class="fas fa-project-diagram feature-icon mb-3"></i>
+                    <h5>Derinlemesine İlişki Analizi</h5>
+                    <p class="text-muted">Farklı zamanlarda ve yerlerde görünen yüzler arasındaki gizli bağlantıları ve sosyal ağları ortaya çıkararak değerli içgörüler sağlar.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+</div>
+{% endblock %} 

@@ -1,0 +1,18 @@
+/* app/static/css/admin_panel_styles.css */
+
+/* Admin paneline özel ek stiller buraya eklenebilir */
+
+/* Örnek Stiller (İsteğe bağlı) */
+.card-header .btn-sm {
+    margin-top: -2px; /* Butonların başlıkla daha iyi hizalanması için */
+}
+
+.table-responsive {
+    margin-top: 1rem;
+}
+
+/* Admin sidebar için ek özelleştirmeler (admin_base.html'dekine ek olarak) */
+.admin-sidebar .nav-link i {
+    width: 20px; /* İkonlar için sabit genişlik */
+    text-align: center;
+} 

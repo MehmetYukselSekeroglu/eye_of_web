@@ -1,0 +1,44 @@
+# Web Framework
+Flask>=2.3.0
+Werkzeug>=2.3.0
+
+# Production WSGI Server
+gunicorn>=21.0.0
+
+# Database
+mysql-connector-python>=8.0.33
+PyMySQL>=1.0.2
+
+# Security
+bcrypt>=4.0.0
+
+# Machine Learning & Computer Vision
+torch>=1.13.0
+torchvision>=0.14.0
+onnxruntime>=1.15.0
+onnxruntime-gpu>=1.15.0  # CUDA support
+insightface>=0.7.3
+opencv-python>=4.8.0.74
+numpy>=1.24.0
+Pillow>=9.5.0
+
+# Performance & Optimization
+numba>=0.57.0
+
+# System Monitoring
+psutil>=5.9.0
+
+# Configuration & Utilities
+PyYAML>=6.0
+requests>=2.31.0
+
+# Development (optional)
+python-dotenv>=1.0.0
+
+# Database Vector Search (Milvus)
+pymilvus>=2.3.0
+
+# Additional utilities
+tqdm>=4.65.0
+matplotlib>=3.7.0
+scikit-learn>=1.3.0

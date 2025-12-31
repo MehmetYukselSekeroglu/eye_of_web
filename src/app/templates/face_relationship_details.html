@@ -1,0 +1,406 @@
+{% extends 'base.html' %}
+
+{% block title %}Yüz İlişki Detayları - #{{ target_face['ID'] }} ve #{{ related_face['ID'] }}{% endblock %}
+
+{% block styles %}
+<style>
+    .relationship-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 2rem 1.5rem;
+        margin-bottom: 2rem;
+        border-radius: 0.5rem;
+    }
+
+    .faces-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .face-card {
+        text-align: center;
+        padding: 1rem;
+        background-color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.1);
+        margin: 0 1rem;
+    }
+
+    .face-img-container {
+        position: relative;
+        width: 150px;
+        height: 150px;
+        margin: 0 auto 1rem;
+        overflow: hidden;
+        border-radius: 50%;
+        border: 4px solid #4e73df;
+    }
+
+    .target-face .face-img-container {
+        border-color: #1cc88a;
+    }
+
+    .related-face .face-img-container {
+        border-color: #f6c23e;
+    }
+
+    .face-img-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .connection-line {
+        flex-grow: 1;
+        height: 3px;
+        background-color: #4e73df;
+        position: relative;
+        max-width: 100px;
+    }
+
+    .connection-line::before {
+        content: "Birlikte";
+        position: absolute;
+        top: -20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #4e73df;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
+    }
+
+    .stats-card {
+        background-color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stats-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .stats-list li {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e3e6f0;
+    }
+
+    .stats-list li:last-child {
+        border-bottom: none;
+    }
+
+    .images-container {
+        margin-top: 2rem;
+    }
+
+    .image-card {
+        background-color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+
+    .image-card-header {
+        padding: 1rem;
+        border-bottom: 1px solid #e3e6f0;
+        background-color: #f8f9fa;
+    }
+
+    .image-card-body {
+        position: relative;
+    }
+
+    .image-container {
+        position: relative;
+        width: 100%;
+        max-height: 500px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+    }
+
+    .image-container img {
+        max-width: 100%;
+        max-height: 500px;
+    }
+
+    .image-card-footer {
+        padding: 1rem;
+        border-top: 1px solid #e3e6f0;
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+
+    .empty-alert {
+        background-color: #f8f9fa;
+        border-left: 5px solid #4e73df;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .box-legend {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin: 0 1rem;
+    }
+    
+    .legend-color {
+        width: 20px;
+        height: 20px;
+        margin-right: 0.5rem;
+        border: 1px solid rgba(0, 0, 0, 0.2);
+    }
+    
+    .legend-target {
+        background-color: #1cc88a;
+    }
+    
+    .legend-related {
+        background-color: #e74a3b;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="relationship-header">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3 class="mb-0 text-gray-800">Yüz İlişki Detayları</h3>
+                    <!-- PDF İndirme Butonu (Dictionary Access) -->
+                    <a href="{{ url_for('web.download_relationship_details_report', target_face_id=target_face['ID'], face_id=related_face['ID']) }}" class="btn btn-success btn-icon-split">
+                        <span class="icon text-white-50">
+                            <i class="fas fa-file-pdf"></i>
+                        </span>
+                        <span class="text">PDF Rapor İndir</span>
+                    </a>
+                </div>
+                
+                <div class="faces-container">
+                    <!-- Target Face (Dictionary Access) -->
+                    <div class="face-card target-face">
+                        <div class="face-img-container">
+                            {# Use .get() for safety in case URL is None #}
+                            {% if target_face.get('original_image_url') %}
+                                <img src="{{ target_face['original_image_url'] }}" alt="Hedef Yüz #{{ target_face['ID'] }}">
+                            {% else %}
+                                <div class="placeholder-face"><i class="fas fa-user fa-3x text-gray-300"></i></div>
+                            {% endif %}
+                        </div>
+                        <h5>Hedef #{{ target_face['ID'] }}</h5>
+                        {# Use .get() for safety #}
+                        {% if target_face.get('RiskLevel') %}
+                            {% set risk_level_str = target_face['RiskLevel'] %}
+                            {% set risk_class = 'text-success' %}
+                            {% if risk_level_str == 'orta' %}
+                                {% set risk_class = 'text-warning' %}
+                            {% elif risk_level_str == 'yüksek' %}
+                                {% set risk_class = 'text-danger' %}
+                            {% elif risk_level_str == 'kritik' %}
+                                {% set risk_class = 'text-dark' %}
+                            {% endif %}
+                            <div class="mb-2 {{ risk_class }}">
+                                <i class="fas fa-shield-alt"></i> {{ risk_level_str|capitalize }}
+                            </div>
+                        {% endif %}
+                        <a href="{{ url_for('web.face_details', face_id=target_face['ID']) }}" class="btn btn-sm btn-outline-success">
+                            <i class="fas fa-info-circle"></i> Detay
+                        </a>
+                    </div>
+                    
+                    <!-- Connection Line -->
+                    <div class="connection-line"></div>
+                    
+                    <!-- Related Face (Dictionary Access) -->
+                    <div class="face-card related-face">
+                        <div class="face-img-container">
+                            {# Use .get() for safety #}
+                            {% if related_face.get('original_image_url') %}
+                                <img src="{{ related_face['original_image_url'] }}" alt="İlişkili Yüz #{{ related_face['ID'] }}">
+                            {% else %}
+                                <div class="placeholder-face"><i class="fas fa-user fa-3x text-gray-300"></i></div>
+                            {% endif %}
+                        </div>
+                        <h5>İlişkili #{{ related_face['ID'] }}</h5>
+                        {# Use .get() for safety #}
+                        {% if related_face.get('RiskLevel') %}
+                            {% set risk_level_str = related_face['RiskLevel'] %}
+                            {% set risk_class = 'text-success' %}
+                            {% if risk_level_str == 'orta' %}
+                                {% set risk_class = 'text-warning' %}
+                            {% elif risk_level_str == 'yüksek' %}
+                                {% set risk_class = 'text-danger' %}
+                            {% elif risk_level_str == 'kritik' %}
+                                {% set risk_class = 'text-dark' %}
+                            {% endif %}
+                            <div class="mb-2 {{ risk_class }}">
+                                <i class="fas fa-shield-alt"></i> {{ risk_level_str|capitalize }}
+                            </div>
+                        {% endif %}
+                        {# Use .get() for safety #}
+                        {% if related_face.get('group_size', 0) > 1 %}
+                            <div class="mb-2 text-primary">
+                                <i class="fas fa-users"></i> {{ related_face['group_size'] }} benzer yüz
+                            </div>
+                        {% endif %}
+                        <a href="{{ url_for('web.face_details', face_id=related_face['ID']) }}" class="btn btn-sm btn-outline-warning">
+                            <i class="fas fa-info-circle"></i> Detay
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats (Dictionary Access) -->
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <div class="stats-card">
+                <h5 class="mb-3 text-primary"><i class="fas fa-chart-bar me-2"></i>İlişki İstatistikleri</h5>
+                <ul class="stats-list">
+                    <li>
+                        <span><i class="fas fa-images me-2 text-gray-400"></i>Birlikte Görüldüğü Görsel Sayısı:</span>
+                        {# Use .get() for safety #}
+                        <strong>{{ stats.get('total_images', 0) }}</strong>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-user-friends me-2 text-gray-400"></i>Hedef Grubu Büyüklüğü:</span>
+                        <strong>{{ stats.get('total_target_group', 0) }}</strong>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-user-friends me-2 text-gray-400"></i>İlişkili Grubu Büyüklüğü:</span>
+                        <strong>{{ stats.get('total_related_group', 0) }}</strong>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-percent me-2 text-gray-400"></i>Benzerlik Eşiği:</span>
+                        <strong>{{ (stats.get('threshold', 0) * 100)|round(1) }}%</strong>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="mb-4">
+                 {# Dictionary Access for target_face ID #}
+                <a href="{{ url_for('web.comprehensive_person_analysis', face_id=target_face['ID']) }}" class="btn btn-primary">
+                    <i class="fas fa-arrow-left"></i> Kapsamlı Analize Dön
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Images -->
+    <div class="images-container">
+        <h4 class="mb-3 text-gray-800">Birlikte Görüntülendiği Görseller</h4>
+        
+        <!-- Box Legend -->
+        <div class="box-legend">
+            <div class="legend-item">
+                <div class="legend-color legend-target"></div>
+                <span>Hedef Yüz</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color legend-related"></div>
+                <span>İlişkili Yüz</span>
+            </div>
+        </div>
+        
+        {% if images and images|length > 0 %}
+            <div class="row">
+                {% for image in images %}
+                <div class="col-lg-6">
+                    <div class="image-card">
+                        <div class="image-card-header">
+                            <div class="row">
+                                <div class="col-sm-8">
+                                    <h6 class="mb-0">
+                                        {# Access image id using dictionary key #}
+                                        <i class="fas fa-image me-2"></i>Görsel #{{ image['id'] }}
+                                    </h6>
+                                    {% if image.get('title') %}
+                                    <small class="text-muted">{{ image['title'] }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-sm-4 text-end">
+                                    <small class="text-muted">
+                                        {# Access detection_date using dictionary key and format if not None #}
+                                        {{ image['detection_date'].strftime('%d.%m.%Y %H:%M') if image.get('detection_date') else 'Tarih yok' }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="image-card-body">
+                            <div class="image-container">
+                                {# Access processed_image using dictionary key #}
+                                <img src="data:image/jpeg;base64,{{ image['processed_image'] }}" alt="Görsel #{{ image['id'] }}" class="img-fluid" loading="lazy">
+                            </div>
+                        </div>
+                        <div class="image-card-footer">
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    {# Access domain using dictionary key #}
+                                    <i class="fas fa-globe me-1"></i> {{ image.get('domain', 'N/A') }}
+                                </div>
+                                <div class="col-sm-6 text-end">
+                                    {# Dictionary access for target_face ID and image ID #}
+                                    <a href="{{ url_for('web.face_details', face_id=target_face['ID']) }}?image_id={{ image['id'] }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-search-plus"></i> Detay
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-warning mt-4">
+                <h5 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Görsel Bulunamadı</h5>
+                <p>Bu detay sayfasında yapılan sorgu sonucunda, seçilen iki yüzün (veya benzerlerinin) birlikte bulunduğu bir görsel bulunamadı.</p>
+                {# Use .get() for safety #}
+                {% if stats and stats.get('total_images', 0) > 0 %}
+                <hr>
+                <p class="mb-0"><small><strong>Not:</strong> Kapsamlı analiz sayfasında belirtilen "{{ stats['total_images'] }}" görülme sayısı, bu sayfadaki sorgudan farklı bir gruplama veya analiz yönteminin sonucu olabilir.</small></p>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Profil resimlerinde yüzü vurgula
+    document.addEventListener('DOMContentLoaded', function() {
+        // Sayfadaki görsellerin yüklenme tamamlandığında animasyon veya diğer işlemler yapılabilir
+        const profileImages = document.querySelectorAll('.face-img-container img');
+        profileImages.forEach(img => {
+            img.addEventListener('load', function() {
+                // Görsel yüklendiğinde animasyon veya efekt eklenebilir
+                this.style.opacity = '1';
+            });
+        });
+    });
+</script>
+{% endblock %} 

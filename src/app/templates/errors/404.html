@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Sayfa Bulunamadı - {{ env_config.APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="error-page">
+                <h1 class="display-1 fw-bold">404</h1>
+                <h2 class="mb-4">Sayfa Bulunamadı</h2>
+                <p class="lead mb-5">Aradığınız sayfa mevcut değil veya başka bir adrese taşınmış olabilir.</p>
+                <a href="{{ url_for('web.index') }}" class="btn btn-primary">
+                    <i class="fas fa-home me-2"></i> Ana Sayfaya Dön
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

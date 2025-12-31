@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Beyaz Liste Arama{% endblock %}
+
+{% block styles %}
+<style>
+    .search-card {
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+        border: none;
+        border-radius: 10px;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 5px;
+        padding: 0.6rem 1rem;
+        border: 1px solid #ddd;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .btn-custom {
+        padding: 0.6rem 1.5rem;
+        border-radius: 5px;
+    }
+    
+    .icon-box {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: #d4edda;
+        margin: 0 auto 1rem;
+        color: #28a745;
+        font-size: 1.5rem;
+    }
+    
+    .info-box {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+    
+    .info-box h5 {
+        color: #495057;
+        margin-bottom: 1rem;
+    }
+    
+    .info-box p {
+        color: #6c757d;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">Beyaz Liste Arama</h2>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card search-card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Arama Kriterleri</h4>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('web.whitelist_search') }}" method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="mb-3">
+                            <label for="face_name" class="form-label">İsim</label>
+                            <input type="text" class="form-control" id="face_name" name="face_name" 
+                                value="{{ request.form.face_name|default('')|e }}" placeholder="İsim ile arama yapın...">
+                            <small class="form-text text-muted">İsim kısmını boş bırakırsanız tüm isimler aranır.</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="institution" class="form-label">Kurum</label>
+                            <input type="text" class="form-control" id="institution" name="institution" 
+                                value="{{ request.form.institution|default('')|e }}" placeholder="Kurum ile arama yapın...">
+                            <small class="form-text text-muted">Kişinin bağlı olduğu kurum veya organizasyon.</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Kategori</label>
+                            <input type="text" class="form-control" id="category" name="category" 
+                                value="{{ request.form.category|default('')|e }}" placeholder="Kategori ile arama yapın...">
+                            <small class="form-text text-muted">Kişinin kategorisi veya etiketleri.</small>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="start_date" class="form-label">Başlangıç Tarihi</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date"
+                                    value="{{ request.form.start_date|default('')|e }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="end_date" class="form-label">Bitiş Tarihi</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date"
+                                    value="{{ request.form.end_date|default('')|e }}">
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="reset" class="btn btn-outline-secondary btn-custom me-md-2">
+                                <i class="fas fa-undo"></i> Sıfırla
+                            </button>
+                            <button type="submit" class="btn btn-success btn-custom">
+                                <i class="fas fa-search"></i> Ara
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card search-card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Görsel ile Arama</h4>
+                </div>
+                <div class="card-body text-center">
+                    <p class="mb-3">Yüz görselini kullanarak beyaz listede arama yapmak için:</p>
+                    <a href="{{ url_for('web.whitelist_upload_search') }}" class="btn btn-success btn-custom">
+                        <i class="fas fa-image me-1"></i> Görsel ile Ara
+                    </a>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <div class="text-center mb-3">
+                    <div class="icon-box">
+                        <i class="fas fa-info"></i>
+                    </div>
+                    <h5>Beyaz Liste Hakkında</h5>
+                </div>
+                <p>
+                    Beyaz liste, bilinen ve güvenli olarak işaretlenen yüzlerin bulunduğu bir veritabanıdır. Bu kişiler genellikle resmî kurumlarda çalışan, resmi olarak tanınmış kişiler veya belirli bir kategoriye ait kişilerdir. Bu arama aracı ile beyaz listedeki kişileri isim, kurum, kategori veya tarih aralığına göre filtreleyerek bulabilirsiniz.
+                </p>
+                <p>
+                    Beyaz listedeki kişiler otomatik olarak izlenen kişiler değildir ve sistemde normal kullanıcılar olarak tanımlanmıştır. Bu listedeki kişilerin bilgileri yalnızca yetkili kullanıcılar tarafından görüntülenebilir.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

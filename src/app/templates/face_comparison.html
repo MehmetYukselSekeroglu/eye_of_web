@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}Yüz Karşılaştırma - EyeOfWeb Anti Terror{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">Yüz Karşılaştırma</h2>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card search-card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">İki Görsel Arasında Yüz Karşılaştırması</h4>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('web.face_comparison') }}" method="post" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="image_file1" class="form-label">1. Görsel</label>
+                                    <input type="file" class="form-control" id="image_file1" name="image_file1" accept="image/*" required>
+                                    <small class="form-text text-muted">
+                                        Karşılaştırılacak ilk görsel.
+                                    </small>
+                                    <div id="preview-container1" class="mt-2"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="image_file2" class="form-label">2. Görsel</label>
+                                    <input type="file" class="form-control" id="image_file2" name="image_file2" accept="image/*" required>
+                                    <small class="form-text text-muted">
+                                        Karşılaştırılacak ikinci görsel.
+                                    </small>
+                                    <div id="preview-container2" class="mt-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="threshold" class="form-label">Benzerlik Eşiği</label>
+                            <input type="range" class="form-range" id="threshold" name="threshold" min="0.1" max="0.9" step="0.05" value="0.6">
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">Düşük (Daha fazla eşleşme)</small>
+                                <small class="text-muted"><span id="threshold-value">0.6</span></small>
+                                <small class="text-muted">Yüksek (Daha kesin eşleşmeler)</small>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-exchange-alt me-2"></i>Karşılaştır
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            {% if results %}
+            <div class="card mb-4">
+                <div class="card-header {% if results.total_matches > 0 %}bg-success{% else %}bg-warning{% endif %} text-white">
+                    <h4 class="mb-0">Karşılaştırma Sonuçları</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert {% if results.total_matches > 0 %}alert-success{% else %}alert-warning{% endif %}">
+                        <strong>{{ message }}</strong>
+                        <p class="mb-0 mt-1">Benzerlik eşiği: %{{ results.threshold_percent }}</p>
+                    </div>
+                    
+                    <!-- Download Button Added -->
+                    {% if report_available %}
+                    <div class="mb-3 text-right">
+                        <a href="{{ url_for('web.download_comparison_report') }}" class="btn btn-success">
+                            <i class="fas fa-file-pdf"></i> PDF Rapor İndir
+                        </a>
+                    </div>
+                    {% endif %}
+                    <!-- End Download Button -->
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5>1. Görsel ({{ results.faces1_count }} yüz)</h5>
+                            <div class="text-center">
+                                <img src="data:image/jpeg;base64,{{ results.full_image1 }}" class="img-fluid rounded shadow" alt="1. Görsel">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>2. Görsel ({{ results.faces2_count }} yüz)</h5>
+                            <div class="text-center">
+                                <img src="data:image/jpeg;base64,{{ results.full_image2 }}" class="img-fluid rounded shadow" alt="2. Görsel">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if results.total_matches > 0 %}
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Benzerlik Özeti</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 text-center">
+                                    <div class="display-4 fw-bold {% if results.avg_similarity >= 80 %}text-success{% elif results.avg_similarity >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                                        %{{ results.avg_similarity|default(0)|int }}
+                                    </div>
+                                    <p class="text-muted">Ortalama Benzerlik</p>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div class="display-4 fw-bold text-success">{{ results.total_matches }}</div>
+                                    <p class="text-muted">Toplam Eşleşme</p>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div class="display-4 fw-bold {% if results.max_similarity >= 80 %}text-success{% elif results.max_similarity >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                                        %{{ results.max_similarity|default(0)|int }}
+                                    </div>
+                                    <p class="text-muted">En Yüksek Benzerlik</p>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="d-flex justify-content-center">
+                                    <div class="d-flex align-items-center me-4">
+                                        <div class="p-2 bg-success rounded me-2"></div>
+                                        <small>80-100% (Yüksek Benzerlik)</small>
+                                    </div>
+                                    <div class="d-flex align-items-center me-4">
+                                        <div class="p-2 bg-warning rounded me-2"></div>
+                                        <small>60-79% (Orta Benzerlik)</small>
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <div class="p-2 bg-danger rounded me-2"></div>
+                                        <small>0-59% (Düşük Benzerlik)</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h5 class="mb-3">Eşleşen Yüzler</h5>
+                    
+                    <div class="accordion" id="faceMatchesAccordion">
+                        {% for face in results.results %}
+                        {% if face.match_count > 0 %}
+                        <div class="accordion-item mb-3">
+                            <h2 class="accordion-header" id="heading{{ face.face_id }}">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ face.face_id }}" aria-expanded="true" aria-controls="collapse{{ face.face_id }}">
+                                    1. Görsel - Yüz #{{ face.face_id }} ({{ face.match_count }} eşleşme)
+                                </button>
+                            </h2>
+                            <div id="collapse{{ face.face_id }}" class="accordion-collapse collapse show" aria-labelledby="heading{{ face.face_id }}" data-bs-parent="#faceMatchesAccordion">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0">1. Görsel - Yüz #{{ face.face_id }}</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="text-center mb-2">
+                                                        <img src="data:image/jpeg;base64,{{ face.face_img }}" class="img-fluid rounded" alt="1. Görsel - Yüz #{{ face.face_id }}">
+                                                    </div>
+                                                    <table class="table table-sm">
+                                                        <tbody>
+                                                            <tr>
+                                                                <th>Cinsiyet:</th>
+                                                                <td>{{ face.gender }}</td>
+                                                            </tr>
+                                                            {% if face.age is not none %}
+                                                            <tr>
+                                                                <th>Yaş:</th>
+                                                                <td>{{ face.age }}</td>
+                                                            </tr>
+                                                            {% endif %}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-8">
+                                            <h6>Eşleşen Yüzler:</h6>
+                                            <div class="row">
+                                                {% for match in face.matches %}
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="card h-100 position-relative">
+                                                        <div class="card-header bg-light">
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <span>2. Görsel - Yüz #{{ match.face_id }}</span>
+                                                                <span class="badge {% if match.similarity_percent >= 80 %}bg-success{% elif match.similarity_percent >= 60 %}bg-warning{% else %}bg-danger{% endif %}">
+                                                                    %{{ match.similarity_percent }}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div class="position-absolute" style="top: 50%; left: -25px; transform: translateY(-50%); z-index: 1;">
+                                                            <div class="d-flex align-items-center justify-content-center rounded-circle {% if match.similarity_percent >= 80 %}bg-success{% elif match.similarity_percent >= 60 %}bg-warning{% else %}bg-danger{% endif %}" style="width: 30px; height: 30px;">
+                                                                <i class="fas {% if match.similarity_percent >= 80 %}fa-equals{% elif match.similarity_percent >= 60 %}fa-wave-square{% else %}fa-not-equal{% endif %} text-white"></i>
+                                                            </div>
+                                                            <div class="border-top border-3 {% if match.similarity_percent >= 80 %}border-success{% elif match.similarity_percent >= 60 %}border-warning{% else %}border-danger{% endif %}" style="width: 25px; transform: rotate(180deg);"></div>
+                                                        </div>
+                                                        
+                                                        <div class="card-body">
+                                                            <div class="text-center mb-2">
+                                                                <img src="data:image/jpeg;base64,{{ match.face_img }}" class="img-fluid rounded" alt="2. Görsel - Yüz #{{ match.face_id }}">
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label fw-bold mb-1">Benzerlik Oranı: %{{ match.similarity_percent }}</label>
+                                                                <div class="progress">
+                                                                    <div class="progress-bar {% if match.similarity_percent >= 80 %}bg-success{% elif match.similarity_percent >= 60 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                                                         role="progressbar" 
+                                                                         style="width: {{ match.similarity_percent }}%" 
+                                                                         aria-valuenow="{{ match.similarity_percent }}" 
+                                                                         aria-valuemin="0" 
+                                                                         aria-valuemax="100">
+                                                                        %{{ match.similarity_percent }}
+                                                                    </div>
+                                                                </div>
+                                                                <small class="text-muted mt-1 d-block">
+                                                                    {% if match.similarity_percent >= 80 %}
+                                                                        <i class="fas fa-check-circle text-success"></i> Yüksek benzerlik - Büyük olasılıkla aynı kişi
+                                                                    {% elif match.similarity_percent >= 60 %}
+                                                                        <i class="fas fa-exclamation-circle text-warning"></i> Orta benzerlik - Benzer özellikler taşıyan yüzler
+                                                                    {% else %}
+                                                                        <i class="fas fa-times-circle text-danger"></i> Düşük benzerlik - Farklı kişiler olabilir
+                                                                    {% endif %}
+                                                                </small>
+                                                            </div>
+                                                            <table class="table table-sm">
+                                                                <tbody>
+                                                                    <tr>
+                                                                        <th>Cinsiyet:</th>
+                                                                        <td>{{ match.gender }}</td>
+                                                                    </tr>
+                                                                    {% if match.age is not none %}
+                                                                    <tr>
+                                                                        <th>Yaş:</th>
+                                                                        <td>{{ match.age }}</td>
+                                                                    </tr>
+                                                                    {% endif %}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>Seçilen benzerlik eşiğine göre eşleşen yüz bulunamadı. Eşiği düşürerek tekrar deneyebilirsiniz.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Benzerlik eşiği değerini güncelle
+    document.getElementById('threshold').addEventListener('input', function(e) {
+        document.getElementById('threshold-value').textContent = e.target.value;
+    });
+    
+    // Resim ön izleme - 1. görsel
+    document.getElementById('image_file1').addEventListener('change', function(e) {
+        previewImage(e.target, 'preview-container1');
+    });
+    
+    // Resim ön izleme - 2. görsel
+    document.getElementById('image_file2').addEventListener('change', function(e) {
+        previewImage(e.target, 'preview-container2');
+    });
+    
+    // Resim ön izleme fonksiyonu
+    function previewImage(input, containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = ''; // Önceki içeriği temizle
+        
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.classList.add('img-fluid', 'rounded', 'shadow-sm');
+                img.style.maxHeight = '200px';
+                container.appendChild(img);
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+</script>
+{% endblock %} 

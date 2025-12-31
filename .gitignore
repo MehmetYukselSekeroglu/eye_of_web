@@ -1,0 +1,6 @@
+*.mp4
+__pycache__
+flask_session
+*.pyc
+.webui_secret_key
+backups/

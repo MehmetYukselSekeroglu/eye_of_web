@@ -1,0 +1,37 @@
+{% extends "admin/admin_base.html" %}
+
+{% block title %}{{ title }} - Admin Paneli{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Admin Kontrol Paneli</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item active">Kontrol Paneli</li>
+    </ol>
+    <div class="row">
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white mb-4">
+                <div class="card-body">Kullanıcı Yönetimi</div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a class="small text-white stretched-link" href="{{ url_for('admin.list_users') }}">Detayları Görüntüle</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+        <!-- Diğer admin modülleri için kartlar buraya eklenebilir -->
+        <!--
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-warning text-white mb-4">
+                <div class="card-body">Ayarlar</div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a class="small text-white stretched-link" href="#">Detayları Görüntüle</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+        -->
+    </div>
+    <p>Admin paneline hoş geldiniz. Buradan kullanıcıları yönetebilir ve diğer admin işlemlerini gerçekleştirebilirsiniz.</p>
+    
+</div>
+{% endblock %} 

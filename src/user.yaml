@@ -1,0 +1,9 @@
+    common:
+      security:
+        authorizationEnabled: true # Bu satırı 'true' yapın
+        # Diğer güvenlik ayarları burada olabilir
+        # Örneğin, root kullanıcısının ilk parolasını ayarlamak veya süper kullanıcıları tanımlamak için:
+        # defaultPassword: YourNewRootPassword # İsteğe bağlı, ilk kurulumda root için varsayılan şifreyi değiştirir
+        # superUsers: # İsteğe bağlı, virgülle ayrılmış süper kullanıcı listesi
+        #   - root
+        #   - anotherSuperUser

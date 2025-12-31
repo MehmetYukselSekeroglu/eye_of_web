@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block title %}Benzer Yüz Arama Sonuçları - EGM Arananlar{% endblock %}
+
+{% block styles %}
+<style>
+    .result-card {
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.05);
+    }
+    
+    .result-card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .face-image {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 6px;
+    }
+    
+    .similarity-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    
+    .original-face-card {
+        background-color: #f8f9fa;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .badge-organizer {
+        background-color: #6610f2;
+        color: white;
+    }
+    
+    .badge-level-Üst {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .badge-level-Orta {
+        background-color: #fd7e14;
+        color: white;
+    }
+    
+    .badge-level-Alt {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .img-container {
+        position: relative;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('web.index') }}">Ana Sayfa</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('web.egm_search') }}">EGM Arananlar Arama</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Benzer Yüzler</li>
+        </ol>
+    </nav>
+    
+    <h2 class="mb-4">Benzer Yüz Arama Sonuçları</h2>
+    
+    <!-- Orijinal Yüz Bilgileri -->
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-id-card me-2"></i> Aranan Yüz Detayları
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="position-relative img-container">
+                        <img src="data:image/jpeg;base64,{{ original_face.image_data }}" alt="Aranan Yüz" class="img-fluid rounded face-image">
+                        
+                        <!-- Detection Score -->
+                        {% if original_face.detection_score %}
+                        <div class="position-absolute top-0 end-0 m-2">
+                            <span class="badge bg-info">
+                                Tespit: {{ "%.1f"|format(original_face.detection_score * 100) }}%
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <h5 class="mb-2">{{ original_face.face_name if original_face.face_name else 'Aranan Kişi' }}</h5>
+                    
+                    <div class="mb-3">
+                        {% if original_face.organizer %}
+                        <span class="badge badge-organizer">{{ original_face.organizer }}</span>
+                        {% endif %}
+                        {% if original_face.organizer_level %}
+                        <span class="badge badge-level-{{ original_face.organizer_level }}">{{ original_face.organizer_level }} Düzey</span>
+                        {% endif %}
+                    </div>
+                    
+                    <table class="table table-striped">
+                        <tbody>
+                            <tr>
+                                <th>ID:</th>
+                                <td>{{ original_face.id }}</td>
+                            </tr>
+                            
+                            {% if original_face.status %}
+                            <tr>
+                                <th>Durum:</th>
+                                <td>{{ original_face.status }}</td>
+                            </tr>
+                            {% endif %}
+                            
+                            {% if original_face.crime %}
+                            <tr>
+                                <th>Suç:</th>
+                                <td>{{ original_face.crime }}</td>
+                            </tr>
+                            {% endif %}
+                            
+                            {% if original_face.birth_date_location %}
+                            <tr>
+                                <th>Doğum Bilgileri:</th>
+                                <td>{{ original_face.birth_date_location }}</td>
+                            </tr>
+                            {% endif %}
+                            
+                            <tr>
+                                <th>Cinsiyet:</th>
+                                <td>{{ "Erkek" if original_face.gender else "Kadın" }}</td>
+                            </tr>
+                            
+                            {% if original_face.age %}
+                            <tr>
+                                <th>Yaş:</th>
+                                <td>{{ original_face.age }}</td>
+                            </tr>
+                            {% endif %}
+                            
+                            {% if original_face.detection_date %}
+                            <tr>
+                                <th>Tespit Tarihi:</th>
+                                <td>{{ original_face.detection_date.split('T')[0] if 'T' in original_face.detection_date else original_face.detection_date }}</td>
+                            </tr>
+                            {% endif %}
+                            
+                            {% if original_face.catch_date %}
+                            <tr>
+                                <th>Yakalanma Tarihi:</th>
+                                <td>{{ original_face.catch_date }}</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                    <div>
+                        <p><strong>Benzerlik Eşiği:</strong> {{ "%.0f"|format(threshold * 100) }}%</p>
+                        <p><strong>Bulunan Sonuç Sayısı:</strong> {{ results|length }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sonuçlar -->
+    {% if results and results|length > 0 %}
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Benzer Yüzler ({{ results|length }} sonuç)</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for face in results %}
+                <div class="col-md-4 mb-4">
+                    <div class="card result-card h-100">
+                        <div class="img-container">
+                            {% if face.image_data %}
+                            <div class="position-relative img-container">
+                                <img src="data:image/jpeg;base64,{{ face.image_data }}" class="img-fluid rounded face-image" alt="{{ face.face_name }}">
+                                
+                                <!-- Detection Score -->
+                                {% if face.detection_score %}
+                                <div class="position-absolute top-0 end-0 m-2">
+                                    <span class="badge bg-info">
+                                        Tespit: {{ "%.1f"|format(face.detection_score * 100) }}%
+                                    </span>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Similarity Score (eğer benzerlik araması yapıldıysa) -->
+                                {% if face.similarity %}
+                                <div class="position-absolute top-0 start-0 m-2">
+                                    <span class="badge bg-danger">
+                                        Benzerlik: {{ "%.1f"|format(face.similarity * 100) }}%
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% elif face.image_url %}
+                            <a href="{{ face.image_url }}" target="_blank">
+                                <img src="{{ face.image_url }}" class="face-image" alt="Yüz" onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/profile-placeholder.png') }}';">
+                            </a>
+                            <div class="similarity-badge badge bg-success">
+                                {{ "%.1f"|format(face.similarity*100) }}% Benzerlik
+                            </div>
+                            {% else %}
+                            <img src="{{ url_for('static', filename='img/profile-placeholder.png') }}" alt="Görsel Mevcut Değil" class="face-image">
+                            <div class="similarity-badge badge bg-success">
+                                {{ "%.1f"|format(face.similarity*100) }}% Benzerlik
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">{{ face.face_name if face.face_name else 'ID: ' + face.id|string }}</h6>
+                            <ul class="list-group list-group-flush">
+                                {% if face.organizer %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Örgüt:</span>
+                                    <span class="badge badge-organizer">{{ face.organizer }}</span>
+                                </li>
+                                {% endif %}
+                                
+                                {% if face.organizer_level %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Seviye:</span>
+                                    <span class="badge badge-level-{{ face.organizer_level }}">{{ face.organizer_level }} Düzey</span>
+                                </li>
+                                {% endif %}
+                                
+                                {% if face.status %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Durum:</span>
+                                    <span>{{ face.status }}</span>
+                                </li>
+                                {% endif %}
+                                
+                                {% if face.crime %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Suç:</span>
+                                    <span>{{ face.crime }}</span>
+                                </li>
+                                {% endif %}
+                                
+                                {% if face.birth_date_location %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Doğum:</span>
+                                    <span>{{ face.birth_date_location }}</span>
+                                </li>
+                                {% endif %}
+                                
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Cinsiyet:</span>
+                                    <span>{{ "Erkek" if face.gender else "Kadın" }}</span>
+                                </li>
+                                
+                                {% if face.age %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Yaş:</span>
+                                    <span>{{ face.age }}</span>
+                                </li>
+                                {% endif %}
+                                
+                                {% if face.catch_date %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Yakalanma:</span>
+                                    <span>{{ face.catch_date }}</span>
+                                </li>
+                                {% endif %}
+                                
+                                {% if face.detection_date %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Tespit Tarihi:</span>
+                                    <span>{{ face.detection_date.split('T')[0] if 'T' in face.detection_date else face.detection_date }}</span>
+                                </li>
+                                {% endif %}
+                                
+                                {% if face.domain %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Alan Adı:</span>
+                                    <span class="text-truncate" style="max-width: 150px;" title="{{ face.domain }}">{{ face.domain }}</span>
+                                </li>
+                                {% endif %}
+                                
+                                {% if face.risk_level %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Risk Seviyesi:</span>
+                                    <span class="badge {% if face.risk_level == 'yüksek' %}bg-danger{% elif face.risk_level == 'orta' %}bg-warning{% else %}bg-info{% endif %}">
+                                        {{ face.risk_level }}
+                                    </span>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        <div class="card-footer text-center">
+                            <a href="{{ url_for('web.face_details', face_id=face.id) }}" class="btn btn-sm btn-primary">Detaylar</a>
+                            
+                            {% if face.source_url %}
+                            <a href="{{ face.source_url }}" target="_blank" class="btn btn-sm btn-secondary mt-2">
+                                <i class="fas fa-external-link-alt"></i> Kaynağı Ziyaret Et
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <h5><i class="fas fa-info-circle"></i> Sonuç Bulunamadı</h5>
+        <p>Benzer yüz bulunamadı. Daha düşük bir eşik değeri ile tekrar deneyebilirsiniz.</p>
+    </div>
+    {% endif %}
+    
+    <div class="my-4 text-center">
+        <a href="{{ url_for('web.egm_search') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> EGM Arananlar Aramaya Dön
+        </a>
+    </div>
+</div>
+{% endblock %} 

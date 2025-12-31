@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Giriş - {{ env_config.APP_NAME }}{% endblock %}
+
+{% block styles %}
+<style>
+    .login-container {
+        max-width: 450px;
+        margin: 5rem auto;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        background-color: #fff;
+    }
+    
+    .login-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .login-logo {
+        font-size: 3.5rem;
+        color: #343a40;
+    }
+    
+    .login-form .form-control {
+        border-radius: 0.25rem;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+    }
+    
+    .login-btn {
+        width: 100%;
+        padding: 0.75rem;
+        font-size: 1.1rem;
+        border-radius: 0.25rem;
+    }
+    
+    .login-footer {
+        text-align: center;
+        margin-top: 1.5rem;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-header">
+        <div class="login-logo">
+            <i class="fas fa-eye"></i>
+        </div>
+        <h2>{{ env_config.APP_NAME }}</h2>
+        <p class="text-muted">Devam etmek için giriş yapın</p>
+    </div>
+    
+    <form class="login-form" method="post" action="{{ url_for('auth.login') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <div class="mb-3">
+            <label for="username" class="form-label">Kullanıcı Adı</label>
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="fas fa-user"></i>
+                </span>
+                <input type="text" class="form-control" id="username" name="username" placeholder="Kullanıcı adınızı girin" required autofocus>
+            </div>
+        </div>
+        
+        <div class="mb-4">
+            <label for="password" class="form-label">Şifre</label>
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="fas fa-lock"></i>
+                </span>
+                <input type="password" class="form-control" id="password" name="password" placeholder="Şifrenizi girin" required>
+            </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary login-btn">
+            <i class="fas fa-sign-in-alt me-2"></i> Giriş Yap
+        </button>
+    </form>
+    
+    <div class="login-footer">
+        <p class="mb-0">Sistem ile ilgili sorunlarınız için yönetici ile iletişime geçin</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Login formunu göndermeden önce basit bir doğrulama
+    document.querySelector('.login-form').addEventListener('submit', function(event) {
+        var username = document.getElementById('username').value.trim();
+        var password = document.getElementById('password').value.trim();
+        
+        if (!username || !password) {
+            event.preventDefault();
+            alert('Lütfen kullanıcı adı ve şifre alanlarını doldurun.');
+        }
+    });
+</script>
+{% endblock %} 
