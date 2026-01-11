@@ -44,26 +44,103 @@
 
 ### 📋 İçindekiler (Table of Contents)
 
-1.  [Yönetici Özeti](#-yönetici-özeti)
-2.  [Temel Özellikler](#-temel-özellikler-ve-yetenekler)
-    *   [Kapsamlı Kişi Analizi](#1-kapsamlı-kişi-analizi-comprehensive-person-analysis)
-    *   [Derin İlişki Analizi (Deep Insight)](#2-derin-i̇lişki-analizi-deep-insight)
-    *   [Birden Fazla Arama Modu](#3-birden-fazla-arama-modu)
-    *   [Yüz Tespiti ve Karşılaştırma](#4-yüz-tespiti-ve-karşılaştırma)
-    *   [Birden Fazla Veritabanı Koleksiyonu](#5-birden-fazla-veritabanı-koleksiyonu)
-    *   [Yönetici Paneli (Dashboard)](#6-yönetici-paneli-dashboard)
-    *   [PDF Raporlama Sistemi](#7-pdf-raporlama-sistemi)
-3.  [Teknik Mimari](#-teknik-mimari)
-    *   [Hibrit Veritabanı Sistemi](#hibrit-veritabanı-sistemi-postgresql--milvus)
-    *   [Yapay Zeka Motoru (InsightFace)](#yapay-zeka-motoru-insightface--antelopev2)
-    *   [Güvenlik Alt Yapısı](#güvenlik-alt-yapısı)
-    *   [Görüntü İşleme Hattı](#görüntü-i̇şleme-hattı-image-sanitization-pipeline)
-4.  [Teknoloji Yığıtı (Tech Stack)](#-teknoloji-yığıtı-tech-stack)
-5.  [Proje Yapısı](#-proje-yapısı)
-6.  [Kurulum Rehberi](#️-kurulum-rehberi)
-7.  [Yapılandırma Seçenekleri](#️-yapılandırma-seçenekleri)
-8.  [Lisans](#-lisans)
-9.  [Teşekkür ve Katkıda Bulunanlar](#-teşekkür-ve-katkıda-bulunanlar)
+1.  [🐳 Docker ile Hızlı Başlangıç](#-docker-ile-hızlı-başlangıç--quick-start-with-docker)
+2.  [Yönetici Özeti](#-yönetici-özeti)
+3.  [Temel Özellikler](#-temel-özellikler-ve-yetenekler)
+4.  [Teknik Mimari](#-teknik-mimari)
+5.  [Teknoloji Yığıtı (Tech Stack)](#-teknoloji-yığıtı-tech-stack)
+6.  [Proje Yapısı](#-proje-yapısı)
+7.  [Kurulum Rehberi](#️-kurulum-rehberi)
+8.  [Yapılandırma Seçenekleri](#️-yapılandırma-seçenekleri)
+9.  [Lisans](#-lisans)
+10. [Teşekkür ve Katkıda Bulunanlar](#-teşekkür-ve-katkıda-bulunanlar)
+
+---
+
+### 📚 Detaylı Dokümantasyon / Detailed Documentation
+
+| Dosya / File | Açıklama / Description |
+|--------------|------------------------|
+| [doc/DOCKER.md](src/doc/DOCKER.md) | 🐳 Docker kurulum ve yönetim rehberi |
+| [doc/CRAWLER.md](src/doc/CRAWLER.md) | 🕷️ Crawler kullanım kılavuzu (Türkçe) |
+| [doc/CRAWLER_EN.md](src/doc/CRAWLER_EN.md) | 🕷️ Crawler user guide (English) |
+| [doc/CHANGELOG.md](src/doc/CHANGELOG.md) | 📝 Değişiklik günlüğü / Changelog |
+
+---
+
+### 🐳 Docker ile Hızlı Başlangıç / Quick Start with Docker
+
+> [!TIP]
+> **En hızlı kurulum yöntemi Docker kullanmaktır!**  
+> **Docker is the fastest way to get started!**
+
+#### 🇹🇷 Türkçe
+
+```bash
+# 1. Projeyi klonlayın
+git clone https://github.com/MehmetYukselSekeroglu/EyeOfWeb.git
+cd EyeOfWeb/src
+
+# 2. Docker Compose ile başlatın
+sudo docker compose up -d --build
+
+# 3. Logları takip edin
+sudo docker compose logs -f web
+```
+
+**Erişim:** http://localhost:5000  
+**Varsayılan Admin:** `admin` / `admin123_changeme`
+
+#### 🇬🇧 English
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/MehmetYukselSekeroglu/EyeOfWeb.git
+cd EyeOfWeb/src
+
+# 2. Start with Docker Compose
+sudo docker compose up -d --build
+
+# 3. Follow the logs
+sudo docker compose logs -f web
+```
+
+**Access:** http://localhost:5000  
+**Default Admin:** `admin` / `admin123_changeme`
+
+#### Servisler / Services
+
+| Servis / Service | Port | Açıklama / Description |
+|------------------|------|------------------------|
+| Web Uygulaması | 5000 | Ana web arayüzü / Main web interface |
+| PostgreSQL | 5432 | İlişkisel veritabanı / Relational database |
+| Milvus | 19530 | Vektör veritabanı / Vector database |
+| Crawler Worker | - | Arka plan tarayıcı / Background crawler |
+
+> 📖 **Detaylı kurulum için:** [doc/DOCKER.md](src/doc/DOCKER.md)
+
+---
+
+### ⚠️ Önemli Yapılandırma Değişiklikleri / Important Configuration Changes
+
+#### InsightFace Detection Threshold (v2.1.0+)
+
+🇹🇷 **Türkçe:**
+- `det_thresh` değeri **0.5 → 0.75** olarak artırıldı
+- Sadece yüksek güvenilirlikli yüzler algılanır (%75+)
+- Düşük kaliteli/bulanık yüzlerden oluşan bozuk embedding'ler önlenir
+- False positive oranı önemli ölçüde azaltılır
+
+🇬🇧 **English:**
+- `det_thresh` value increased from **0.5 → 0.75**
+- Only high-confidence faces are detected (75%+)
+- Prevents bad embeddings from low-quality/blurry faces
+- Significantly reduces false positive rate
+
+```python
+# lib/init_insightface.py
+default_det_thresh = 0.75  # Artırıldı / Increased
+```
 
 ---
 

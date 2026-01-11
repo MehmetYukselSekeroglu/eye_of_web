@@ -1,0 +1,116 @@
+
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: eyeofweb_app
+    restart: always
+    environment:
+      - FLASK_ENV=production
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=EyeOfWeb
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+      - INIT_SCHEMA=true
+      - GUNICORN_WORKERS=4
+      - GUNICORN_THREADS=2
+      - SECRET_KEY=changeme_in_production
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123_changeme
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+      - milvus
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+      # Mount code for ease of development/updates without rebuild (optional)
+      # - .:/app
+
+  crawler_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.crawler
+    container_name: eyeofweb_crawler
+    restart: always
+    environment:
+      - FLASK_ENV=production
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=EyeOfWeb
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+    depends_on:
+      - db
+      - milvus
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: eyeofweb_db
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=EyeOfWeb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+
+  milvus:
+    image: milvusdb/milvus:v2.4.0
+    container_name: eyeofweb_milvus
+    command: milvus run standalone
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    volumes:
+      - milvus_data:/var/lib/milvus
+    ports:
+      - "19530:19530"
+      - "9191:9091"  # Metrics port (changed from 9091 to avoid conflict)
+    depends_on:
+      - etcd
+      - minio
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - etcd_data:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls=http://0.0.0.0:2379 --data-dir /etcd
+
+  minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    volumes:
+      - minio_data:/minio_data
+    command: minio server /minio_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+volumes:
+  postgres_data:
+  milvus_data:
+  etcd_data:
+  minio_data:

@@ -319,9 +319,17 @@
                         <a href="{{ url_for('web.search_similar', face_id=face.id) }}" class="btn btn-primary btn-sm">
                             <i class="fas fa-search me-1"></i> Benzer Yüzleri Ara
                         </a>
+                        <a href="{{ url_for('web.comprehensive_person_analysis', face_id=face.id) }}" class="btn btn-success btn-sm">
+                            <i class="fas fa-user-check me-1"></i> Kapsamlı Kişi Analizi
+                        </a>
+                        <a href="{{ url_for('web.extended_face_analysis', face_id=face.id) }}" class="btn btn-info btn-sm">
+                            <i class="fas fa-project-diagram me-1"></i> Genişletilmiş Yüz Analizi
+                        </a>
                     </div>
                     <small class="d-block mt-3 text-muted">
                         * <strong>Benzer Yüzler:</strong> Sadece bu yüze benzeyenleri listeler.<br>
+                        * <strong>Kapsamlı Kişi Analizi:</strong> Bu kişiye ait tüm yüzleri ve ilişkili kişileri gösterir.<br>
+                        * <strong>Genişletilmiş Analiz:</strong> Aynı görseldeki diğer yüzleri analiz eder.
                     </small>
                 </div>
             </div>

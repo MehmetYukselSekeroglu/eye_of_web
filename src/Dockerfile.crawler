@@ -1,0 +1,30 @@
+FROM python:3.10-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libgl1 \
+    libglib2.0-0 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy crawler-specific requirements (lighter, no PyTorch)
+COPY docker_crawler_requirements.txt .
+
+# Install python dependencies (no PyTorch = much faster)
+RUN pip install -r docker_crawler_requirements.txt
+
+# Copy the rest of the application
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p logs uploads temp config
+
+# Set environment variables
+ENV PYTHONPATH=/app
+
+# Entrypoint: Generate config and keep container running
+CMD ["/bin/bash", "-c", "python generate_config.py && echo 'Crawler container ready. Use docker exec to run crawlers.' && tail -f /dev/null"]

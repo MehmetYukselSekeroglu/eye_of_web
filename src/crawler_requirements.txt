@@ -1,0 +1,61 @@
+# ============================================
+# Ana OS Crawler Requirements (Selenium Destekli)
+# ============================================
+# Bu dosya ana işletim sisteminde (Docker dışında) çalışan 
+# crawler'lar içindir. Selenium ve tarayıcı gerektiren 
+# crawler'ları çalıştırmak için kullanılır.
+#
+# Kurulum:
+#   pip install -r crawler_requirements.txt
+#
+# Ayrıca şunlar gereklidir:
+#   - Chrome/Firefox tarayıcısı
+#   - ChromeDriver/GeckoDriver (webdriver-manager otomatik indirir)
+# ============================================
+
+# Temel Bağımlılıklar
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# RSS/Atom Parser
+feedparser>=6.0.0
+
+# Selenium & WebDriver
+selenium>=4.10.0
+webdriver-manager>=4.0.0
+
+# Telegram Crawlers
+pyrogram>=2.0.0
+telethon>=1.28.0
+tgcrypto>=1.2.0
+
+# DuckDuckGo Search
+duckduckgo-search>=3.8.0
+
+# Görsel İşleme
+Pillow>=9.5.0
+opencv-python>=4.7.0
+
+# Veritabanı
+psycopg2-binary>=2.9.6
+pymilvus>=2.3.0
+
+# InsightFace (Yüz Tanıma)
+insightface>=0.7.3
+onnxruntime>=1.15.0
+
+# Yardımcı
+colorama>=0.4.6
+pyfiglet>=1.0.0
+tqdm>=4.65.0
+numpy>=1.24.0
+PyYAML>=6.0
+numba
+flask
+HiveWebCrawler
+# Selenium Gerektiren Crawler'lar:
+# - twitter_crawler_google_based.py
+# - twitter_crawler_file_based.py
+# - google_images_crawler.py
+# - facebook_crawler.py

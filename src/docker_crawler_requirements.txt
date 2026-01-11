@@ -1,0 +1,49 @@
+# ============================================
+# Docker Crawler Requirements
+# ============================================
+# Bu dosya Docker container'da çalışan crawler'lar içindir.
+# Selenium gerektirmez - sadece HTTP tabanlı crawler'lar için.
+# 
+# Selenium gerektiren crawler'lar (twitter, google_images vs.) 
+# ana işletim sisteminde çalıştırılmalıdır.
+# ============================================
+
+# Temel Bağımlılıklar
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# RSS/Atom Parser
+feedparser>=6.0.0
+
+# Telegram Crawlers
+pyrogram>=2.0.0
+telethon>=1.28.0
+tgcrypto>=1.2.0
+
+# DuckDuckGo Search (Selenium gerektirmez)
+duckduckgo-search>=3.8.0
+
+# Görsel İşleme
+Pillow>=9.5.0
+opencv-python-headless>=4.7.0
+
+# Veritabanı
+psycopg2-binary>=2.9.6
+pymilvus>=2.3.0
+
+# InsightFace (Yüz Tanıma)
+insightface>=0.7.3
+onnxruntime>=1.15.0
+
+# Yardımcı
+colorama>=0.4.6
+pyfiglet>=1.0.0
+tqdm>=4.65.0
+numpy>=1.24.0
+PyYAML>=6.0
+numba
+flask
+HiveWebCrawler
+# NOT: Bu dosyada Selenium YOK!
+# Selenium gerektiren crawler'lar için: crawler_requirements.txt kullanın

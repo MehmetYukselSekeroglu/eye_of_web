@@ -1,13 +1,19 @@
 # Web Framework
 Flask>=2.3.0
 Werkzeug>=2.3.0
+Flask-Session>=0.5.0
+Flask-JWT-Extended>=4.5.0
+Flask-Bcrypt>=1.0.1
+Flask-Limiter>=3.3.0
+Flask-Cors>=4.0.0
+Flask-Login>=0.6.2
+Flask-WTF>=1.1.0
 
 # Production WSGI Server
 gunicorn>=21.0.0
 
 # Database
-mysql-connector-python>=8.0.33
-PyMySQL>=1.0.2
+psycopg2-binary>=2.9.6
 
 # Security
 bcrypt>=4.0.0
@@ -16,9 +22,9 @@ bcrypt>=4.0.0
 torch>=1.13.0
 torchvision>=0.14.0
 onnxruntime>=1.15.0
-onnxruntime-gpu>=1.15.0  # CUDA support
+# onnxruntime-gpu>=1.15.0  # Commented out to reduce image size/complexity by default. Uncomment if GPU needed.
 insightface>=0.7.3
-opencv-python>=4.8.0.74
+opencv-python-headless>=4.8.0.74  # Use headless for server environments
 numpy>=1.24.0
 Pillow>=9.5.0
 
@@ -31,6 +37,8 @@ psutil>=5.9.0
 # Configuration & Utilities
 PyYAML>=6.0
 requests>=2.31.0
+beautifulsoup4>=4.12.0
+colorama>=0.4.6
 
 # Development (optional)
 python-dotenv>=1.0.0
@@ -38,7 +46,20 @@ python-dotenv>=1.0.0
 # Database Vector Search (Milvus)
 pymilvus>=2.3.0
 
+# Crawlers & Social Media
+selenium>=4.10.0
+duckduckgo-search>=3.8.0
+pyrogram>=2.0.106
+telethon>=1.29.2
+tgcrypto>=1.2.5
+
 # Additional utilities
 tqdm>=4.65.0
 matplotlib>=3.7.0
 scikit-learn>=1.3.0
+
+# PDF Generation
+fpdf2>=2.7.0
+pyfiglet
+numba
+HiveWebCrawler
