@@ -61,10 +61,10 @@
 
 | Dosya / File | Açıklama / Description |
 |--------------|------------------------|
-| [doc/DOCKER.md](src/doc/DOCKER.md) | 🐳 Docker kurulum ve yönetim rehberi |
-| [doc/CRAWLER.md](src/doc/CRAWLER.md) | 🕷️ Crawler kullanım kılavuzu (Türkçe) |
-| [doc/CRAWLER_EN.md](src/doc/CRAWLER_EN.md) | 🕷️ Crawler user guide (English) |
-| [doc/CHANGELOG.md](src/doc/CHANGELOG.md) | 📝 Değişiklik günlüğü / Changelog |
+| [doc/DOCKER.md](doc/DOCKER.md) | 🐳 Docker kurulum ve yönetim rehberi |
+| [doc/CRAWLER.md](doc/CRAWLER.md) | 🕷️ Crawler kullanım kılavuzu (Türkçe) |
+| [doc/CRAWLER_EN.md](doc/CRAWLER_EN.md) | 🕷️ Crawler user guide (English) |
+| [doc/CHANGELOG.md](doc/CHANGELOG.md) | 📝 Değişiklik günlüğü / Changelog |
 
 ---
 
@@ -78,8 +78,8 @@
 
 ```bash
 # 1. Projeyi klonlayın
-git clone https://github.com/MehmetYukselSekeroglu/EyeOfWeb.git
-cd EyeOfWeb/src
+git clone https://github.com/MehmetYukselSekeroglu/eye_of_web.git
+cd eye_of_web/src
 
 # 2. Docker Compose ile başlatın
 sudo docker compose up -d --build
@@ -95,8 +95,8 @@ sudo docker compose logs -f web
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/MehmetYukselSekeroglu/EyeOfWeb.git
-cd EyeOfWeb/src
+git clone https://github.com/MehmetYukselSekeroglu/eye_of_web.git
+cd eye_of_web/src
 
 # 2. Start with Docker Compose
 sudo docker compose up -d --build
@@ -117,7 +117,7 @@ sudo docker compose logs -f web
 | Milvus | 19530 | Vektör veritabanı / Vector database |
 | Crawler Worker | - | Arka plan tarayıcı / Background crawler |
 
-> 📖 **Detaylı kurulum için:** [doc/DOCKER.md](src/doc/DOCKER.md)
+> 📖 **Detaylı kurulum için:** [doc/DOCKER.md](doc/DOCKER.md)
 
 ---
 
@@ -426,7 +426,7 @@ Sisteme yüklenen veya dış kaynaklardan alınan tüm görseller, `validate_and
 ### 📁 Proje Yapısı
 
 ```
-EyeOfWeb/
+eye_of_web/
 ├── .git/                           # Git versiyon kontrol
 ├── .gitignore                      # Git tarafından yoksayılan dosyalar
 ├── LICENSE                         # MIT Lisansı
@@ -515,8 +515,8 @@ sudo systemctl enable docker && sudo systemctl start docker
 
 **2. Kaynak Kodunu Klonlayın:**
 ```bash
-git clone https://github.com/MehmetYukselSekeroglu/EyeOfWeb.git
-cd EyeOfWeb
+git clone https://github.com/MehmetYukselSekeroglu/eye_of_web.git
+cd eye_of_web
 ```
 
 **3. Python Sanal Ortamını Oluşturun:**
@@ -675,84 +675,472 @@ Bu projenin hayata geçirilmesinde emeği geçen kişilere teşekkürlerimizi su
 
 ### 📋 Table of Contents
 
-1.  [Executive Summary](#-executive-summary)
-2.  [Core Features](#-core-features)
-3.  [Technical Architecture](#️-technical-architecture-overview)
-4.  [Technology Stack](#-technology-stack)
-5.  [Installation](#️-installation-summary)
-6.  [License](#-license-1)
-7.  [Acknowledgements](#-acknowledgements)
+1.  [🐳 Quick Start with Docker](#-quick-start-with-docker)
+2.  [Executive Summary](#-executive-summary)
+3.  [Core Features and Capabilities](#-core-features-and-capabilities)
+4.  [Technical Architecture](#️-technical-architecture)
+5.  [Technology Stack](#️-technology-stack-1)
+6.  [Project Structure](#-project-structure)
+7.  [Installation Guide](#️-installation-guide)
+8.  [Configuration Options](#️-configuration-options)
+9.  [License](#-license-1)
+10. [Acknowledgements](#-acknowledgements)
+
+---
+
+### 🐳 Quick Start with Docker
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/MehmetYukselSekeroglu/eye_of_web.git
+cd eye_of_web/src
+
+# 2. Start with Docker Compose
+sudo docker compose up -d --build
+
+# 3. Follow the logs
+sudo docker compose logs -f web
+```
+
+**Access:** http://localhost:5000  
+**Default Admin:** `admin` / `admin123_changeme`
+
+> 📖 **For detailed installation:** [doc/DOCKER.md](doc/DOCKER.md)
 
 ---
 
 ### 📄 Executive Summary
 
-**EyeOfWeb** is a state-of-the-art **Facial Intelligence & Security Analysis Platform** designed for OSINT (Open Source Intelligence) operations. It leverages cutting-edge deep learning models to autonomously crawl web sources, detect faces, generate unique mathematical vectors (embeddings), and index them in a high-performance vector database (Milvus).
+**EyeOfWeb** is a comprehensive and professional security intelligence platform that combines Open Source Intelligence (OSINT) methodologies with next-generation deep learning-based biometric analysis technologies.
 
-The system's **hybrid database architecture** (PostgreSQL for relational metadata + Milvus for vector embeddings) enables it to perform complex queries—such as 1:N identity searches, social network analysis, and person profiling—across billions of face vectors in **milliseconds**.
+The system autonomously crawls visual data from various sources on the internet (news portals, blogs, RSS feeds, etc.), detects faces in these images, creates a unique mathematical vector (embedding) for each face, and indexes these vectors in a high-performance vector database (Milvus). In parallel, metadata such as source, date, and risk level of detected faces is stored in a relational database (PostgreSQL).
 
----
-
-### 🚀 Core Features
-
-*   **Comprehensive Person Analysis:** Identifies all images containing a target individual (and their look-alikes), then analyzes co-occurrence patterns with other faces to map their social network.
-*   **Deep Insight (Co-occurrence Analysis):** Quickly identifies which other faces appear most frequently in the same images as a target face.
-*   **Multiple Search Modes:**
-    *   Image-based search (upload a photo to find matches).
-    *   Text/Filter-based search (filter by domain, date range, risk level, category).
-    *   Similarity search (find faces similar to an existing database entry).
-*   **Face Detection & Comparison:** Detect all faces in an uploaded image or compare two faces 1:1.
-*   **Multiple Database Collections:** Separate collections for main data, whitelists, external data, and watchlists (e.g., EGM format).
-*   **Admin Dashboard:** Real-time statistics on total faces, domains, images, risk distribution, and database health.
-*   **PDF Reporting:** Generate professional, timestamp-verified PDF reports for all analysis types.
-*   **Enterprise-Grade Security:** JWT authentication, server-side sessions, bcrypt password hashing, CSRF protection, rate limiting, and robust image sanitization.
+Thanks to this **hybrid database architecture**, EyeOfWeb can perform advanced analyses such as 1:N identity search, 1:1 face comparison, social relationship network/association analysis, and person profiling among billions of face data in **milliseconds**.
 
 ---
 
-### 🏛️ Technical Architecture Overview
+### 🚀 Core Features and Capabilities
 
-| Component         | Technology         | Purpose                                                     |
-| :---------------- | :----------------- | :---------------------------------------------------------- |
-| **Relational DB** | PostgreSQL         | Stores metadata: URLs, timestamps, risk levels, user data.  |
-| **Vector DB**     | Milvus             | Stores and indexes 512-dim face embeddings for ANN search.  |
-| **AI Engine**     | InsightFace (AntelopeV2) | Face detection, 106-point landmark, embedding extraction. |
-| **Web Framework** | Flask              | Handles HTTP requests, routing, and templating.             |
-| **Image Processing** | OpenCV, Pillow  | Image manipulation, sanitization, and format conversion.    |
+Below are all the core features defined in the `src/app/routes/web.py` module and accessible via the user interface/API explained in detail.
+
+---
+
+#### 1. Comprehensive Person Analysis
+
+This is EyeOfWeb's most powerful and sophisticated analysis tool. It performs a comprehensive sociometric analysis based on photographs of a specific person.
+
+**Route:** `/comprehensive_person_analysis/<face_id>`
+
+**How It Works:**
+1.  **Target Person Identification:** The selected face ID (`face_id`) is identified as the target person.
+2.  **Collecting Similar Faces (Different Photos of the Same Person):** All faces similar to the target person's face vector are found in the Milvus vector database. Vectors exceeding the specified similarity threshold (default: 0.45) are considered "same person" and grouped together.
+3.  **Finding All Related Images:** All images containing any face from the target person group are retrieved from PostgreSQL. At this stage, `ImageHash` (visual fingerprint) based deduplication is performed to ensure image uniqueness.
+4.  **Extracting Associated Faces:** All faces other than the target person in the found images are collected.
+5.  **Grouping Associated Faces:** These "other" faces are also grouped among themselves according to the similarity threshold.
+6.  **Calculating Co-occurrence Count:** How many different images each "associated person" group appears with the target person is calculated.
+7.  **Presenting Results:** Results are presented sorted by co-occurrence count.
+
+**Use Cases:**
+*   Mapping a person's social circle.
+*   Analyzing in which environments and with whom a person is present.
+*   Revealing network patterns.
+
+---
+
+#### 2. Deep Insight (Deep Relationship Analysis)
+
+Analyzes how often a specific face appears in the same photo with other faces registered in the system. Provides a faster alternative to Comprehensive Person Analysis but does not perform similarity-based grouping.
+
+**Route:** `/deep_insight/<face_id>`
+
+**How It Works:**
+1.  All images containing the target face (`face_id`) are retrieved from PostgreSQL (`ImageBasedMain` table).
+2.  All other faces found together with the target face in these images are listed.
+3.  How many different images each other face appears with the target face is counted (`Counter`).
+4.  The top 10 most frequently co-occurring faces are listed with detailed information (gender, age, risk level, source domain, image URL).
+
+---
+
+#### 3. Multiple Search Modes
+
+EyeOfWeb offers various search modes to meet different needs.
+
+##### a) Image Search
+**Route:** `/search/image`, `/search/upload`
+
+Compares the face in a photo uploaded by the user with all records in the database.
+*   Uploaded image passes security check with `validate_and_sanitize_image` function.
+*   Image is converted to NumPy array and fed to InsightFace model to obtain a 512-dimensional vector.
+*   This vector is searched in Milvus database with `Cosine Similarity` algorithm.
+*   Results above the user-defined similarity threshold (default: 0.6) are listed.
+
+##### b) Text/Filter Search
+**Route:** `/search`, `/search/text`
+
+Searches on structural data (metadata) over PostgreSQL.
+*   `domain`: Filters results from a specific website.
+*   `start_date` / `end_date`: Range filter by detection date.
+*   `risk_level`: Filtering by risk level (low, medium, high, critical).
+*   `category`: Filtering by website category.
+*   Pagination support is available (`page`, `per_page` parameters).
+
+##### c) Similar Face Search
+**Route:** `/search/similar/<face_id>`
+
+Searches for other faces similar to a face already registered in the database (`face_id`).
+
+---
+
+#### 4. Face Detection and Comparison
+
+##### a) Face Detection
+**Route:** `/face/detection`
+
+Detects all faces in any uploaded image.
+*   Faces in the image are listed with bounding boxes, gender, age, and detection scores using InsightFace model.
+*   Detected faces are visualized with boxes drawn on the image.
+*   Results can be downloaded as PDF report.
+
+##### b) Face Comparison
+**Route:** `/face/comparison`
+
+Analyzes whether the first face in each of two different uploaded images matches (1:1 Comparison).
+*   Cosine similarity is calculated and compared with user-defined threshold.
+*   Returns "Match Found" or "No Match Found" result.
+*   Results can be downloaded as PDF report.
+
+---
+
+#### 5. Multiple Database Collections
+
+EyeOfWeb supports multiple Milvus collections and PostgreSQL tables to manage different data sources.
+
+| Collection / Table Name           | Description                                                                 |
+| :------------------------------- | :----------------------------------------------------------------------- |
+| `EyeOfWebFaceDataMilvus`         | Main face vector collection collected by system's web crawling.        |
+| `WhiteListFacesMilvus`           | Collection of manually added "recognized" or "allowed" faces.|
+| `ExternalFaceStorageMilvus`      | Faces transferred from external sources (API, etc.).                             |
+| `CustomFaceStorageMilvus`        | User-defined custom collection.                                       |
+
+---
+
+#### 6. Admin Dashboard
+
+**Route:** `/dashboard` (Admin users only)
+
+A central management screen showing system-wide statistics and health status.
+
+**Statistics Provided:**
+*   `total_faces`: Total face record count.
+*   `total_domains`: Number of unique scanned domains.
+*   `total_images`: Total image count.
+*   `high_risk`: Number of faces marked as high risk.
+*   `risk_levels_chart`: Risk level distribution.
+*   `categories_chart`: Website category distribution.
+
+---
+
+#### 7. PDF Reporting System
+
+EyeOfWeb can produce professional format PDF reports for all analyses performed.
+
+**Supported Reports:**
+*   **Image Search Report:** `/download/image_search_report`
+*   **Similar Face Search Report:** `/download/similar_search_report`
+*   **Comprehensive Person Analysis Report:** `/download/comprehensive_analysis_report`
+*   **Face Detection Report**
+*   **Face Comparison Report**
+
+---
+
+### 🏛️ Technical Architecture
+
+#### Hybrid Database System (PostgreSQL + Milvus)
+
+EyeOfWeb uses a hybrid architecture that separately processes structural/relational data and high-dimensional vector data.
+
+| Component       | Database   | Stored Data                                                                 | Usage Purpose                                               |
+| :------------ | :----------- | :---------------------------------------------------------------------------- | :----------------------------------------------------------- |
+| **Memory**    | PostgreSQL   | Users, URL components, titles, hashes, dates, risk levels | SQL queries, filtering, JOIN, metadata   |
+| **Brain**     | Milvus       | 512-d Face Vectors, 212-d Landmark Vectors, 4-d FaceBox Coordinates    | ANN search (HNSW), Similarity calculation (`Cosine Similarity`)|
+
+---
+
+#### AI Engine: InsightFace & AntelopeV2
+
+EyeOfWeb uses the industry-standard **InsightFace** library's **AntelopeV2** model for face detection and recognition.
+
+**Model Features:**
+| Feature                     | Value                                                                 |
+| :-------------------------- | :-------------------------------------------------------------------- |
+| Face Detection    | RetinaFace based, multi-scale support                               |
+| Landmark Detection            | 106-point face markers (eyes, eyebrows, nose, lips, jawline, etc.)   |
+| Vector Embedding Size     | 512 dimensions (float32)                                                 |
+| Gender Prediction            | Binary (Male: True, Female: False)                                    |
+| Age Prediction                 | Continuous value (integer)                                               |
+| Detection Score              | Confidence value between 0.0 - 1.0                                          |
+
+---
+
+#### Security Infrastructure
+
+EyeOfWeb is equipped with enterprise-grade security mechanisms.
+
+| Component                     | Technology / Method             | Description                                                                                     |
+| :-------------------------- | :----------------------------- | :------------------------------------------------------------------------------------------- |
+| **Authentication**        | Flask-JWT-Extended             | Secure access based on JSON Web Token for all API and web interface.                           |
+| **Session Management**         | Flask-Session (Server-Side)   | Session data is stored server-side. Tokens are kept in HttpOnly and SameSite cookies. |
+| **Encryption**               | Flask-Bcrypt                   | User passwords are hashed and stored with bcrypt algorithm.                            |
+| **CSRF Protection**           | Flask-WTF                      | Form submissions are protected against Cross-Site Request Forgery attacks.                   |
+| **Rate Limiting**           | Flask-Limiter                  | IP-based request limiting (e.g., `10/minute` for `/search/image`).                      |
 
 ---
 
 ### 🛠️ Technology Stack
 
-*   **Backend:** Python 3.8+, Flask
-*   **Databases:** PostgreSQL, Milvus
-*   **AI/ML:** InsightFace, ONNX Runtime, NumPy, SciPy
-*   **Security:** Flask-JWT-Extended, Flask-Bcrypt, Flask-WTF, Flask-Limiter
-*   **Image Processing:** OpenCV, Pillow
-*   **Frontend:** HTML5, CSS3, JavaScript, Jinja2
+| Layer               | Technology                                  | Version / Notes             |
+| :------------------- | :----------------------------------------- | :---------------------------- |
+| **Language**              | Python                                     | 3.8+                          |
+| **Web Framework**    | Flask                                      | 2.0+                          |
+| **WSGI Server**      | Gunicorn / Waitress (Recommended)             | For Production               |
+| **Relational DB**     | PostgreSQL                                 | 13+                           |
+| **Vector DB**        | Milvus                                     | 2.3+                          |
+| **DB Adapter**       | Psycopg2, PyMilvus                         |                               |
+| **ML / AI**          | InsightFace (ONNX Runtime), NumPy, SciPy  | AntelopeV2 model             |
+| **Image Processing**   | OpenCV (cv2), Pillow (PIL)                 |                               |
+| **Security**         | Flask-JWT-Extended, Flask-Bcrypt, Flask-WTF, Flask-Limiter, Flask-Session |                               |
+| **Data Parsing**  | feedparser (RSS/Atom)                      |                               |
+| **Reporting**        | ReportLab or similar (lib/pdf_generator) | PDF generation                 |
+| **Frontend**         | HTML5, CSS3, JavaScript, Jinja2            | Responsive UI                 |
+| **Container**        | Docker, Docker Compose                     | For Milvus deployment          |
 
 ---
 
-### ⚙️ Installation Summary
+### 📁 Project Structure
 
-1.  **Setup Infrastructure:** Deploy Milvus via Docker, configure PostgreSQL.
-2.  **Clone Repository:** `git clone <repo_url>`
-3.  **Install Dependencies:** `pip install -r src/requirements.txt`
-4.  **Configure:** Update database connection settings and InsightFace mode (GPU/CPU) in config files.
-5.  **Initialize Schemas:** Run `python src/MILVUS_SCHEMA_GENERATOR.py` and PostgreSQL SQL scripts.
-6.  **Run:** `python src/run.py`
+```
+eye_of_web/
+├── .git/                           # Git version control
+├── .gitignore                      # Files ignored by Git
+├── LICENSE                         # MIT License
+├── README.md                       # This documentation file
+├── img/                            # Static images (logo, etc.)
+│   └── logo.png
+│
+└── src/                            # Main source code directory
+    ├── run.py                      # Flask application startup script
+    ├── requirements.txt            # Python dependencies
+    │
+    ├── app/                        # Flask Application Module (MVC Architecture)
+    │   ├── __init__.py             # Flask application factory
+    │   ├── config/                 # Application configuration files
+    │   ├── controllers/            # Business logic layer
+    │   ├── models/                 # Database models / ORM
+    │   ├── routes/                 # URL routing and endpoint definitions (Blueprints)
+    │   ├── static/                 # Static files (CSS, JS, images)
+    │   └── templates/              # Jinja2 HTML templates
+    │
+    ├── config/                     # System configuration files
+    │   ├── config.json             # GPU mode configuration
+    │   └── cpu_config.json         # CPU mode configuration
+    │
+    ├── lib/                        # Helper libraries and tools
+    │   ├── database_tools.py       # PostgreSQL & Milvus operations
+    │   ├── init_insightface.py     # InsightFace model initialization
+    │   └── pdf_generator.py        # PDF report generation
+    │
+    └── sql/                        # SQL schema and query files
+```
+
+---
+
+### ⚙️ Installation Guide
+
+#### System Requirements
+
+| Component       | Minimum                        | Recommended                             |
+| :------------ | :----------------------------- | :----------------------------------- |
+| **OS**        | Ubuntu 18.04+ / Windows 10 WSL2 | Ubuntu 20.04+ / Debian 11+          |
+| **CPU**       | 4 Cores (x86_64)            | 8+ Cores (AVX2 supported)          |
+| **RAM**       | 8 GB                           | 16 GB or more                |
+| **Storage**  | 100 GB (SSD recommended)          | 250 GB+ SSD                          |
+| **GPU**       | Optional                      | NVIDIA GPU (CUDA 11.x+), 4GB+ VRAM   |
+| **Network**        | Continuous internet connection    | Stable, high bandwidth       |
+
+#### Step-by-Step Installation
+
+**1. System Dependencies (Ubuntu/Debian):**
+```bash
+sudo apt-get update && sudo apt-get upgrade -y
+sudo apt-get install -y python3-dev python3-pip python3-venv git \
+    postgresql postgresql-contrib libpq-dev \
+    build-essential libssl-dev libffi-dev \
+    docker.io docker-compose
+sudo systemctl enable docker && sudo systemctl start docker
+```
+
+**2. Clone the Source Code:**
+```bash
+git clone https://github.com/MehmetYukselSekeroglu/eye_of_web.git
+cd eye_of_web
+```
+
+**3. Create Python Virtual Environment:**
+```bash
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install --upgrade pip
+pip install -r src/requirements.txt
+```
+*If using GPU:*
+```bash
+pip install onnxruntime-gpu
+```
+
+**4. Start Milvus Database (Docker):**
+```bash
+wget https://github.com/milvus-io/milvus/releases/download/v2.3.0/milvus-standalone-docker-compose.yml -O docker-compose.yml
+sudo docker-compose up -d
+sudo docker-compose ps
+```
+
+**5. Configure PostgreSQL Database:**
+```bash
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+sudo -u postgres psql << EOF
+CREATE DATABASE eyeofweb;
+CREATE USER eyeofwebuser WITH ENCRYPTED PASSWORD 'strong_password_here';
+GRANT ALL PRIVILEGES ON DATABASE eyeofweb TO eyeofwebuser;
+\q
+EOF
+```
+
+**6. Create Database Schemas:**
+```bash
+python src/MILVUS_SCHEMA_GENERATOR.py
+```
+
+**7. Start the Application:**
+```bash
+python src/run.py
+```
+Navigate to `http://localhost:5000` in your browser.
+
+---
+
+### ⚙️ Configuration Options
+
+#### InsightFace (GPU/CPU) Configuration
+
+**`src/config/config.json` (GPU Mode):**
+```json
+{
+  "insightface": {
+    "prepare": {
+      "ctx_id": 0,
+      "det_thresh": 0.6,
+      "det_size": [640, 640]
+    },
+    "main": {
+      "providers": ["CUDAExecutionProvider"],
+      "name": "antelopev2"
+    }
+  }
+}
+```
+
+**`src/config/cpu_config.json` (CPU Mode):**
+```json
+{
+  "insightface": {
+    "prepare": {
+      "ctx_id": -1,
+      "det_thresh": 0.5,
+      "det_size": [160, 160]
+    },
+    "main": {
+      "providers": ["CPUExecutionProvider"],
+      "name": "antelopev2"
+    }
+  }
+}
+```
 
 ---
 
 ### 📄 License
 
-This project is licensed under the **MIT License**. See the `LICENSE` file for details.
+This project is licensed under the **MIT License**.
+
+Summary:
+*   You can freely use the software for commercial or non-commercial purposes.
+*   You can modify and distribute the source code.
+*   You must keep the license and copyright notice.
+*   **NO WARRANTY IS PROVIDED.** The software is provided "AS IS".
+
+See the `LICENSE` file in the project root directory for the full license text.
 
 ---
 
 ### 🙏 Acknowledgements
 
-*   **Advisor / Instructor:** **Uğur POLAT**
-*   **Project Owner / Lead Developer:** **Mehmet Yüksel ŞEKEROĞLU**
+We would like to thank everyone who contributed to the realization of this project.
+
+---
+
+#### Advisor / Instructor
+
+| | |
+|---|---|
+| **Name** | **Uğur POLAT** |
+| **Contribution** | Academic Guidance, Project Management, Architectural Vision and Technical Consulting |
+
+---
+
+#### Project Owner / Lead Developer
+
+| | |
+|---|---|
+| **Name** | **Mehmet Yüksel ŞEKEROĞLU** |
+| **Contribution** | Full-stack Development, AI Model Integration, Database Design, System Architecture and Documentation |
+
+---
+
+---
+
+## 📸 User Interface Screenshots / Kullanıcı Arayüzü Ekran Görüntüleri
+
+---
+
+### 🇹🇷 Türkçe
+
+| Ekran | Görüntü |
+|-------|---------|
+| **Karşılama Ekranı** | ![Welcome Screen](img/welcome_screen.png) |
+| **Metin Araması Girişi** | ![Text Search Input](img/text_search_input.png) |
+| **Metin Araması Sonuçları** | ![Text Search Results](img/text_search_results.png) |
+| **Yüz Araması - Resim Ekleme** | ![Face Search Add Picture](img/face_serch_move_1_add_picture.png) |
+| **Yüz Araması - Sonuçlar** | ![Face Search Results](img/face_search_move_2_results.png) |
+| **Yüz Araması - Gelişmiş Sonuçlar** | ![Face Search Advanced Results](img/face_search_move_3_advanced_results.png) |
+| **Yüz Tespiti** | ![Face Detection](img/face_detection.png) |
+| **Yüz Karşılaştırma** | ![Face Comparison](img/face_comparsion.png) |
+
+---
+
+### 🇬🇧 English
+
+| Screen | Image |
+|--------|-------|
+| **Welcome Screen** | ![Welcome Screen](img/welcome_screen.png) |
+| **Text Search Input** | ![Text Search Input](img/text_search_input.png) |
+| **Text Search Results** | ![Text Search Results](img/text_search_results.png) |
+| **Face Search - Add Picture** | ![Face Search Add Picture](img/face_serch_move_1_add_picture.png) |
+| **Face Search - Results** | ![Face Search Results](img/face_search_move_2_results.png) |
+| **Face Search - Advanced Results** | ![Face Search Advanced Results](img/face_search_move_3_advanced_results.png) |
+| **Face Detection** | ![Face Detection](img/face_detection.png) |
+| **Face Comparison** | ![Face Comparison](img/face_comparsion.png) |
 
 ---
 
