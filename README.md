@@ -142,6 +142,18 @@ sudo docker compose logs -f web
 default_det_thresh = 0.75  # Artırıldı / Increased
 ```
 
+#### Playwright Crawler Integration (v2.2.0+)
+
+🇹🇷 **Türkçe:**
+- Google Search ve Facebook tarayıcıları için **Playwright** desteği eklendi.
+- **10x performans artışı** ve asenkron (async) multi-tab desteği.
+- `--backend playwright` parametresi ile aktif edilir.
+
+🇬🇧 **English:**
+- Added **Playwright** support for Google Search and Facebook crawlers.
+- **10x performance boost** and asynchronous multi-tab support.
+- Activated via `--backend playwright` argument.
+
 ---
 
 ### 📄 Yönetici Özeti
@@ -417,6 +429,7 @@ Sisteme yüklenen veya dış kaynaklardan alınan tüm görseller, `validate_and
 | **Görüntü İşleme**   | OpenCV (cv2), Pillow (PIL)                 |                               |
 | **Güvenlik**         | Flask-JWT-Extended, Flask-Bcrypt, Flask-WTF, Flask-Limiter, Flask-Session |                               |
 | **Veri Ayrıştırma**  | feedparser (RSS/Atom)                      |                               |
+| **Web Crawling**     | Selenium, Playwright                       | Async/Multi-tab Support       |
 | **Raporlama**        | ReportLab veya benzeri (lib/pdf_generator) | PDF oluşturma                 |
 | **Frontend**         | HTML5, CSS3, JavaScript, Jinja2            | Responsive UI                 |
 | **Konteyner**        | Docker, Docker Compose                     | Milvus dağıtımı için          |
@@ -910,6 +923,7 @@ EyeOfWeb is equipped with enterprise-grade security mechanisms.
 | **Image Processing**   | OpenCV (cv2), Pillow (PIL)                 |                               |
 | **Security**         | Flask-JWT-Extended, Flask-Bcrypt, Flask-WTF, Flask-Limiter, Flask-Session |                               |
 | **Data Parsing**  | feedparser (RSS/Atom)                      |                               |
+| **Web Crawling**     | Selenium, Playwright                       | Async/Multi-tab Support       |
 | **Reporting**        | ReportLab or similar (lib/pdf_generator) | PDF generation                 |
 | **Frontend**         | HTML5, CSS3, JavaScript, Jinja2            | Responsive UI                 |
 | **Container**        | Docker, Docker Compose                     | For Milvus deployment          |

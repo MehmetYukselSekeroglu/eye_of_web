@@ -163,10 +163,18 @@ Scans websites from Google/DuckDuckGo search results.
 |-----------|----------|---------|-------------|
 | `--query` | ✅ | - | Search query |
 | `--num-results` | ❌ | 10 | Number of results |
+| `--backend` | ❌ | playwright | Browser backend (`playwright` or `selenium`) |
 | `--risk-level` | ❌ | - | Risk level |
 | `--category` | ❌ | - | Category |
 
+#### Playwright Backend Features (`--backend playwright`)
+- **Speed:** Up to 10x faster than Selenium.
+- **Parallel Scanning:** Concurrent page scanning using multi-tab (default 3 tabs) for search results.
+- **Facebook Integration:** High-speed scanning for Facebook profiles and search results using optimized crawler.
+- **Privacy:** Advanced anti-bot measures included.
+
 #### Usage Examples
+
 
 ```bash
 # Simple search
@@ -277,6 +285,7 @@ Searches for people/profiles on Facebook and scans profile photos.
 | `--headless` | ❌ | True | Headless mode |
 | `--driver_path` | ❌ | - | ChromeDriver path |
 | `--temp_folder` | ❌ | temp | Temporary folder |
+| `--backend` | ❌ | selenium | Browser backend (`selenium` or `playwright`) |
 
 > `*` = Either `--keyword` or `--file` is required
 

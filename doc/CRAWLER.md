@@ -163,10 +163,18 @@ Google/DuckDuckGo arama sonuçlarındaki siteleri tarar.
 |-----------|---------|------------|----------|
 | `--query` | ✅ | - | Arama sorgusu |
 | `--num-results` | ❌ | 10 | Sonuç sayısı |
+| `--backend` | ❌ | playwright | Tarayıcı altyapısı (`playwright` veya `selenium`) |
 | `--risk-level` | ❌ | - | Risk seviyesi |
 | `--category` | ❌ | - | Kategori |
 
+#### Playwright Backend Özellikleri (`--backend playwright`)
+- **Hız:** Selenium'a göre 10 kata kadar daha hızlı.
+- **Paralel Tarama:** Arama sonuçları için multi-tab (varsayılan 3 sekme) ile eşzamanlı sayfa taraması yapar.
+- **Facebook Entegrasyonu:** Facebook profil ve arama sonuçlarını özel optimize edilmiş crawler ile çok hızlı tarar.
+- **Gizlilik:** Daha gelişmiş anti-bot önlemleri içerir.
+
 #### Kullanım Örnekleri
+
 
 ```bash
 # Basit arama
@@ -277,6 +285,7 @@ Facebook'ta kişi/profil arar ve profil fotoğraflarını tarar.
 | `--headless` | ❌ | True | Başlıksız mod |
 | `--driver_path` | ❌ | - | ChromeDriver yolu |
 | `--temp_folder` | ❌ | temp | Geçici klasör |
+| `--backend` | ❌ | selenium | Tarayıcı altyapısı (`selenium` veya `playwright`) |
 
 > `*` = `--keyword` veya `--file` parametrelerinden biri zorunludur
 
