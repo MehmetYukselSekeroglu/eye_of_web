@@ -47,3 +47,6 @@ flask
 HiveWebCrawler
 # NOT: Bu dosyada Selenium YOK!
 # Selenium gerektiren crawler'lar için: crawler_requirements.txt kullanın
+selenium
+playwright
+aiohttp

@@ -12,6 +12,9 @@ printf "Removing config directory...\n"
 rm -rf config
 
 printf "Removing logs directory...\n"
-rm -rf logs
+sudo rm -rf logs
+
+printf "Removing temp dir...\n"
+rm -rf temp
 
 printf "Ready for commit!\n"
