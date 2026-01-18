@@ -19,8 +19,8 @@ psycopg2-binary>=2.9.6
 bcrypt>=4.0.0
 
 # Machine Learning & Computer Vision
-torch>=1.13.0
-torchvision>=0.14.0
+
+
 onnxruntime>=1.15.0
 # onnxruntime-gpu>=1.15.0  # Commented out to reduce image size/complexity by default. Uncomment if GPU needed.
 insightface>=0.7.3
@@ -66,3 +66,4 @@ pyfiglet
 numba
 HiveWebCrawler
 aiohttp
+networkx>=3.1

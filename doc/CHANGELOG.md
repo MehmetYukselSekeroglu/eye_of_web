@@ -5,6 +5,60 @@ All notable changes are documented in this file.
 
 ---
 
+## [2.3.2] - 2026-01-18
+
+### 📚 Documentation & Localization
+
+#### Türkçe
+- **Çoklu Dil Desteği**: `README_RU.md` (Rusça) ve `README_CN.md` (Çince) dokümantasyonları eklendi.
+- **Teşekkür & Katkılar**: Enes Ülker, "Siber Güvenlik Araştırmacısı" olarak katkıda bulunanlar listesine eklendi.
+- **Video İçerikleri**: Kullanım örnekleri ve kapsamlı analiz için video placeholder alanları eklendi.
+- **Docker Optimizasyonu**: Docker imajının varsayılan olarak Torch CPU sürümü ile boyut tasarrufu sağladığına dair not eklendi.
+
+#### English
+- **Multi-Language Support**: Added `README_RU.md` (Russian) and `README_CN.md` (Chinese) documentation.
+- **Acknowledgements**: Added Enes Ülker as "Cyber Security Researcher" to the contributors list.
+- **Video Content**: Added video placeholder sections for usage examples and comprehensive analysis.
+- **Docker Optimization**: Added note about Docker image using Torch CPU version by default for size optimization.
+
+## [2.3.1] - 2026-01-16
+
+### 🧠 Kapsamlı Kişi Analizi: Cluster All Stratejisi
+
+#### Türkçe
+- **Algoritma Tamamen Yenilendi**: "Kapsamlı Kişi Analizi" (`/comprehensive_person_analysis`) fonksiyonu **"Cluster All" (Herkesi Kümele)** stratejisine geçirildi.
+  - Eski yöntemdeki "Hedef kişiyi çıkar, kalanları grupla" mantığı terk edildi.
+  - **Yeni Yöntem:** Hedef kişinin bulunduğu karelerdeki **hedef dahil tüm yüzler** toplanır ve tek bir havuzda kümelenir.
+  - Bu sayede hedef kişi ile ona benzeyen ancak farklı olan kişiler (örn: Belediye Başkanı vs Elon Musk) kusursuz şekilde ayrıştırılır.
+  - "Kendisiyle eşleşme" (Self-matching) sorunu çözüldü.
+- **Daha Hassas Hedef Tespiti:** Hedef kümesi, sadece orijinal `face_id`'yi içeren veya hedef vektörüne %45+ benzeyen kümeler olarak belirlenir.
+- **Yanlış Pozitifler Giderildi:** Aynı karede birden fazla hedef kişi yüzü varsa veya hedef tespit edilememişse algoritma artık hata yapmaz.
+
+#### English
+- **Algorithm Completely Overhauled**: "Comprehensive Person Analysis" switched to **"Cluster All"** strategy.
+  - Discarded the old "Exclude target, group the rest" logic.
+  - **New Method:** **All faces** (including the target) in the relevant frames are collected and clustered in a single pool.
+  - This perfectly separates the target person from look-alikes (e.g., Mayor vs. Elon Musk).
+  - Solved the "Self-matching" issue.
+- **Precise Target Identification:** Target clusters are identified strictly by containing the original `face_id` or matching the target vector by 45%+.
+- **False Positives Eliminated:** Robust against missed detections or multiple target faces in the same frame.
+
+### 🎨 Arayüz ve Görselleştirme İyileştirmeleri
+
+#### Türkçe
+- **Bounding Box Renkleri Düzeltildi**: `face_relationship_details.html` sayfasında:
+  - 🟢 **Yeşil Kutu**: Hedef Kişi (Target)
+  - 🔴 **Kırmızı Kutu**: İlişkili Kişi (Related)
+  - Renk atamalarındaki mantık hatası giderildi.
+- **Grup İçi Benzerlik Genişletmesi**: Temsilci yüz seçimi ve grup genişletme algoritması, Milvus tabanlı doğrulama ile güçlendirildi.
+
+#### English
+- **Bounding Box Colors Fixed**: In `face_relationship_details.html`:
+  - 🟢 **Green Box**: Target Person
+  - 🔴 **Red Box**: Related Person
+  - Fixed logic error in color assignment.
+- **Intra-Group Similarity Expansion:** Representative face selection and group expansion algorithm verified with Milvus-based validation.
+
 ## [2.2.0] - 2026-01-14
 
 ### 🕷️ Organic Google Search System (Selenium + Playwright)

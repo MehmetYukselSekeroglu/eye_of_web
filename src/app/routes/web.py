@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 from flask import (
     Blueprint,
     render_template,
@@ -2921,7 +2922,9 @@ def comprehensive_person_analysis(face_id):
             flash("Lütfen kapsamlı analiz yapmak için bir yüz seçiniz.", "info")
             return redirect(url_for("web.search", analysis=True))
 
-        similarity_threshold = float(request.args.get("threshold", 0.45))
+        # Default threshold set to 0.45 for balanced precision/recall
+        default_threshold = float(os.getenv("SIMILARITY_THRESHOLD", "0.45"))
+        similarity_threshold = float(request.args.get("threshold", default_threshold))
         distance_threshold = 1 - similarity_threshold
 
         try:
@@ -3096,8 +3099,9 @@ def comprehensive_person_analysis(face_id):
             f"Hedef grup yüzlerini içeren {len(target_images)} potansiyel görsel kaydı bulundu. Bu görüntülerde yer alan tüm kişiler için birlikte görülme analizi yapılacak."
         )
 
-        # 5. Bu görsellerdeki tüm yüzleri topla (Hash'e göre tekilleştir)
-        all_related_face_ids = set()
+        # 5. Bu görsellerdeki TÜM yüzleri topla (Hash'e göre tekilleştir)
+        # CLUSTER ALL STRATEGY: Hedef yüzler dahil tüm yüzleri al
+        all_face_ids_in_images = set()
         image_hash_map = {}
         for img in target_images:
             img_hash = img.get("ImageHash")
@@ -3109,35 +3113,37 @@ def comprehensive_person_analysis(face_id):
                     "faces": set(),
                 }
             if img.get("FaceID"):
-                image_hash_map[img_hash]["faces"].update(img["FaceID"])
+                # Ensure it's iterable
+                f_ids = img["FaceID"]
+                if isinstance(f_ids, (list, tuple)):
+                    image_hash_map[img_hash]["faces"].update(f_ids)
+                elif isinstance(f_ids, int):
+                    image_hash_map[img_hash]["faces"].add(f_ids)
 
         for img_hash, data in image_hash_map.items():
-            all_related_face_ids.update(data["faces"])
+            all_face_ids_in_images.update(data["faces"])
+
         current_app.logger.info(
-            f"Tekilleştirilmiş {len(image_hash_map)} görseldeki toplam yüz sayısı: {len(all_related_face_ids)}"
+            f"Tekilleştirilmiş {len(image_hash_map)} görseldeki toplam yüz sayısı: {len(all_face_ids_in_images)} (Hedef dahil herkes)"
         )
 
-        related_face_ids_to_group = all_related_face_ids - target_group_ids
-        current_app.logger.info(
-            f"Hedef grup dışındaki gruplanacak ilişkili yüz sayısı: {len(related_face_ids_to_group)}"
-        )
-
-        # 6. İlişkili yüzlerin embedding'lerini Milvus'tan al (Gruplama için)
-        related_faces_milvus_data_for_grouping = []
-        if related_face_ids_to_group:
+        # 6. TÜM yüzlerin embedding'lerini Milvus'tan al (Gruplama için)
+        all_faces_milvus_data = []
+        if all_face_ids_in_images:
             current_app.logger.info(
-                f"Gruplama için {len(related_face_ids_to_group)} ilişkili yüzün Milvus verileri çekiliyor..."
+                f"Gruplama için {len(all_face_ids_in_images)} yüzün Milvus verileri çekiliyor..."
             )
-            # Toplu Milvus veri çekme (optimizasyon)
+            # Fetch embeddings for ALL faces
             batch_start_time = datetime.datetime.now()
             batch_milvus_data = g.db_tools.get_batch_milvus_face_attributes(
                 collection_name=EYE_OF_WEB_FACE_DATA_MILVUS_COLLECTION_NAME,
-                pg_face_ids=list(related_face_ids_to_group),
+                pg_face_ids=list(all_face_ids_in_images),
             )
             batch_end_time = datetime.datetime.now()
+
             current_app.logger.info(
                 f"Toplu Milvus veri çekme tamamlandı. Süre: {batch_end_time - batch_start_time}. "
-                f"{len(batch_milvus_data)}/{len(related_face_ids_to_group)} yüz verisi alındı."
+                f"{len(batch_milvus_data)}/{len(all_face_ids_in_images)} yüz verisi alındı."
             )
 
             # Alınan verileri işle
@@ -3148,43 +3154,41 @@ def comprehensive_person_analysis(face_id):
                         emb_list = ast.literal_eval(emb_list)
                     emb_vector = np.array(emb_list, dtype=np.float32)
                     if emb_vector.size == 512:
-                        related_faces_milvus_data_for_grouping.append(
+                        all_faces_milvus_data.append(
                             {"ID": face_id, "embedding_vector": emb_vector}
                         )
-                    else:
-                        current_app.logger.warning(
-                            f"Gruplama için yüz {face_id} Milvus embedding boyutu geçersiz ({emb_vector.size}). Atlanıyor."
-                        )
-                else:
-                    current_app.logger.warning(
-                        f"Gruplama için yüz {face_id} Milvus embedding verisi bulunamadı. Atlanıyor."
-                    )
-        current_app.logger.info(
-            f"Gruplama için {len(related_faces_milvus_data_for_grouping)} adet ilişkili yüzün Milvus embedding verisi başarıyla çekildi."
-        )
+            current_app.logger.info(
+                f"Gruplama için {len(all_faces_milvus_data)} adet yüzün embedding verisi hazır."
+            )
 
-        # 7. İlişkili yüzleri grupla (Python tabanlı, Milvus embeddinglerini kullanarak)
+        # 7. TÜM yüzleri grupla (Greedy Clustering)
         face_groups = {}
         face_to_group = {}
         next_group_id = 0
         processed_count_grouping = 0
 
+        # Sort for deterministic results
+        all_faces_milvus_data.sort(key=lambda x: x["ID"])
+
         start_grouping_time = datetime.datetime.now()
         current_app.logger.info(
-            f"İlişkili yüz gruplama işlemi başlıyor. Toplam {len(related_faces_milvus_data_for_grouping)} yüz için gruplama yapılacak..."
+            f"Tüm yüzler kümeleniyor (Cluster All Strategy). Toplam {len(all_faces_milvus_data)} yüz..."
         )
-        for i, face1_data in enumerate(related_faces_milvus_data_for_grouping):
+
+        for i, face1_data in enumerate(all_faces_milvus_data):
             face1_id = face1_data["ID"]
             if face1_id in face_to_group:
                 continue
 
             face1_embedding = face1_data["embedding_vector"]
 
+            # Create new group
             current_group = {face1_id}
             face_groups[next_group_id] = current_group
             face_to_group[face1_id] = next_group_id
 
-            for face2_data in related_faces_milvus_data_for_grouping[i + 1 :]:
+            # Find matches in remaining faces
+            for face2_data in all_faces_milvus_data[i + 1 :]:
                 face2_id = face2_data["ID"]
                 if face2_id in face_to_group:
                     continue
@@ -3195,8 +3199,10 @@ def comprehensive_person_analysis(face_id):
                     similarity = np.dot(face1_embedding, face2_embedding) / (
                         np.linalg.norm(face1_embedding)
                         * np.linalg.norm(face2_embedding)
+                        + 1e-8
                     )
                     processed_count_grouping += 1
+
                     if similarity >= similarity_threshold:
                         current_group.add(face2_id)
                         face_to_group[face2_id] = next_group_id
@@ -3204,32 +3210,102 @@ def comprehensive_person_analysis(face_id):
                     current_app.logger.error(
                         f"Grup benzerlik hesaplama hatası ({face1_id}-{face2_id}): {e}"
                     )
+
             next_group_id += 1
 
         end_grouping_time = datetime.datetime.now()
         current_app.logger.info(
-            f"İlişkili yüz gruplama tamamlandı. {next_group_id} grup oluşturuldu. Süre: {end_grouping_time - start_grouping_time}. Toplam {processed_count_grouping} karşılaştırma yapıldı."
+            f"Kümeleme tamamlandı. {next_group_id} farklı kişi grubu oluşturuldu. Süre: {end_grouping_time - start_grouping_time}."
         )
 
         # 8. Her grup için hedef kişiyle görülme sayısını hesapla (Hash bazlı)
+        # Ayrıca her grubun hangi image'larda hedefle birlikte göründüğünü kaydet
+        # CRITICAL: Re-verify similarity to prevent false positives
         group_occurrences = defaultdict(int)
+        group_image_ids = defaultdict(list)  # <<< NEW: Her grup için image ID'leri
+
+        # 8. Hedef Kümeleri Belirle (Identify Target Clusters)
+        # Hangi gruplar 'Hedef Kişi'ye ait?
+        target_cluster_ids = set()
+
+        for g_id, members in face_groups.items():
+            is_target_group = False
+
+            # Check 1: Contains original ID
+            if target_face_id in members:
+                is_target_group = True
+                current_app.logger.info(
+                    f"Grup {g_id} hedef kişiyi (ID: {target_face_id}) içeriyor -> HEDEF KÜME"
+                )
+
+            # Check 2: Similarity Check (if not already marked)
+            if not is_target_group:
+                for member_id in members:
+                    # Find embedding for member
+                    member_data = next(
+                        (x for x in all_faces_milvus_data if x["ID"] == member_id), None
+                    )
+                    if member_data:
+                        sim = np.dot(
+                            target_embedding, member_data["embedding_vector"]
+                        ) / (
+                            np.linalg.norm(target_embedding)
+                            * np.linalg.norm(member_data["embedding_vector"])
+                            + 1e-8
+                        )
+                        if sim >= similarity_threshold:
+                            is_target_group = True
+                            current_app.logger.info(
+                                f"Grup {g_id}, hedef kişiye benzeyen üyeye sahip (ID: {member_id}, Sim: {sim:.3f}) -> HEDEF KÜME"
+                            )
+                            break
+
+            if is_target_group:
+                target_cluster_ids.add(g_id)
+
         current_app.logger.info(
-            "Grup-hedef birliktelik sayısı hesaplanıyor: Hangi kişi grubu, hedef kişi ile kaç kez aynı fotoğrafta görülmüş..."
+            f"Toplam Hedef Küme Sayısı: {len(target_cluster_ids)} (IDs: {target_cluster_ids})"
         )
+        if not target_cluster_ids:
+            current_app.logger.warning(
+                "DİKKAT: Hiçbir hedef küme bulunamadı! Orijinal yüz veya benzerleri bu görüntülerde yok mu?"
+            )
+
+        # 9. Birliktelik Sayımı (Co-occurrence Counting)
+        group_occurrences = defaultdict(int)
+        group_image_ids = defaultdict(list)
+
+        co_occurrence_count = 0
+
         for img_hash, data in image_hash_map.items():
             current_faces = data["faces"]
-            if any(
-                face_id_check in target_group_ids for face_id_check in current_faces
-            ):
-                processed_groups_in_image = set()
-                for face_id_in_img in current_faces:
-                    if face_id_in_img in face_to_group:
-                        group_id = face_to_group[face_id_in_img]
-                        if group_id not in processed_groups_in_image:
-                            group_occurrences[group_id] += 1
-                            processed_groups_in_image.add(group_id)
+            image_id = data["image_id"]
+
+            # Görseldeki yüzlerin hangi gruplara ait olduğunu bul
+            present_groups = set()
+            for fid in current_faces:
+                if fid in face_to_group:
+                    present_groups.add(face_to_group[fid])
+
+            # Hedef küme var mı?
+            has_target = any(tg_id in present_groups for tg_id in target_cluster_ids)
+
+            if has_target:
+                # Diğer grupları say
+                for g_id in present_groups:
+                    if g_id not in target_cluster_ids:
+                        # Bu bir İLİŞKİLİ kişi grubudur
+                        group_occurrences[g_id] += 1
+                        if image_id not in group_image_ids[g_id]:
+                            group_image_ids[g_id].append(image_id)
+                        co_occurrence_count += 1
+
         current_app.logger.info(
-            f"{len(group_occurrences)} farklı ilişkili kişi/grup, hedef kişi ile en az bir kez birlikte görüldü. Bu sonuçlar analiz için kullanılacak."
+            f"\n=== CO-OCCURRENCE SAYIM SONUÇLARI (CLUSTER ALL) ==="
+        )
+        current_app.logger.info(f"Toplam {co_occurrence_count} ilişki tespiti yapıldı.")
+        current_app.logger.info(
+            f"{len(group_occurrences)} farklı ilişkili kişi grubu bulundu.\n"
         )
 
         # 9. Sonuçları hazırla
@@ -3241,7 +3317,15 @@ def comprehensive_person_analysis(face_id):
         representative_face_ids = []
         group_to_representative = {}
 
+        # Env configurations
+        min_relationship_count = int(os.getenv("MIN_RELATIONSHIP_COUNT", "3"))
+        max_relationship_groups = int(os.getenv("MAX_RELATIONSHIP_GROUPS", "200"))
+
         for group_id, occurrence_count in group_occurrences.items():
+            # Filter by minimum occurrence
+            if occurrence_count < min_relationship_count:
+                continue
+
             if group_id not in face_groups or not face_groups[group_id]:
                 current_app.logger.warning(
                     f"Grup {group_id} geçersiz veya boş! Atlanıyor."
@@ -3340,6 +3424,8 @@ def comprehensive_person_analysis(face_id):
                             )
 
                 facebox_from_milvus = None
+                related_face_embedding = None  # CRITICAL: İlişkili kişinin embedding'i
+
                 if rep_milvus_attrs and "face_box" in rep_milvus_attrs:
                     fb_data = rep_milvus_attrs["face_box"]
                     if isinstance(fb_data, str):
@@ -3349,8 +3435,20 @@ def comprehensive_person_analysis(face_id):
                             fb_data, dtype=np.float32
                         ).tolist()
 
+                # CRITICAL: Embedding'i de al (kırmızı bbox için gerekli)
+                if rep_milvus_attrs and "face_embedding_data" in rep_milvus_attrs:
+                    emb_list = rep_milvus_attrs["face_embedding_data"]
+                    if isinstance(emb_list, str):
+                        emb_list = ast.literal_eval(emb_list)
+                    related_face_embedding = np.array(emb_list, dtype=np.float32)
+
                 face_info = {
                     "id": pg_face_details["face_id"],
+                    "embedding": (
+                        related_face_embedding.tolist()
+                        if related_face_embedding is not None
+                        else None
+                    ),
                     "risk_level": pg_face_details["risk_level"],
                     "image_id": pg_face_details["image_id"],
                     "original_image_url": image_url,
@@ -3360,6 +3458,9 @@ def comprehensive_person_analysis(face_id):
                     "facebox": facebox_from_milvus,
                     "co_occurrence": occurrence_count,
                     "group_size": len(face_groups[group_id]),
+                    "image_ids": group_image_ids.get(
+                        group_id, []
+                    ),  # <<< NEW: Co-occurrence görsel ID'leri
                 }
                 final_related_faces.append(face_info)
             else:
@@ -3368,6 +3469,14 @@ def comprehensive_person_analysis(face_id):
                 )
 
         final_related_faces.sort(key=lambda x: x["co_occurrence"], reverse=True)
+
+        # Limit the number of displayed groups
+        if len(final_related_faces) > max_relationship_groups:
+            current_app.logger.info(
+                f"Sonuç sayısı limitlendi ({len(final_related_faces)} -> {max_relationship_groups})"
+            )
+            final_related_faces = final_related_faces[:max_relationship_groups]
+
         current_app.logger.info(
             f"Sonuçlar sıralandı. {len(final_related_faces)} ilişkili yüz grubu/temsilcisi bulundu."
         )
@@ -3383,7 +3492,7 @@ def comprehensive_person_analysis(face_id):
         stats = {
             "total_similar_faces": len(target_group_ids),
             "total_related_groups": len(group_occurrences),
-            "total_related_faces_processed": len(related_face_ids_to_group),
+            "total_related_faces_processed": len(all_face_ids_in_images),
             "total_unique_images": len(image_hash_map),
             "threshold": similarity_threshold,
         }
@@ -3395,13 +3504,99 @@ def comprehensive_person_analysis(face_id):
             face_copy.pop("image_mime_type", None)
             session_related_faces.append(face_copy)
 
+        # 10. Graph Data Preparation (Vis.js uyumlu)
+        graph_nodes = []
+        graph_edges = []
+
+        # Target Node
+        target_img_src = ""
+        if target_face_image_data:
+            target_img_src = (
+                f"data:{target_face_mime_type};base64,{target_face_image_data}"
+            )
+
+        graph_nodes.append(
+            {
+                "id": target_face_id,
+                "label": f"Hedef\n#{target_face_id}",
+                "group": "target",
+                "image": target_img_src,
+                "shape": "circularImage" if target_img_src else "dot",
+                "size": 40,  # Biraz daha büyük
+                "borderWidth": 4,
+                "color": {"border": "#007bff", "background": "#ffffff"},
+            }
+        )
+
+        # Related Nodes
+        for face in final_related_faces:
+            img_src = ""
+            if face.get("image_data"):
+                img_src = f"data:{face.get('image_mime_type')};base64,{face.get('image_data')}"
+            elif face.get("original_image_url"):
+                img_src = face.get("original_image_url")
+
+            # Risk seviyesine göre kenar rengi
+            border_color = "#858796"  # Default gray
+            risk = face.get("risk_level")
+            if risk == 1:
+                border_color = "#1cc88a"  # Green
+            elif risk == 2:
+                border_color = "#f6c23e"  # Yellow
+            elif risk == 3:
+                border_color = "#e74a3b"  # Red
+            elif risk == 4:
+                border_color = "#5a5c69"  # Black/Dark
+
+            node_size = (
+                20 + math.log(face.get("co_occurrence", 1)) * 5
+            )  # Logaritmik büyüme
+
+            graph_nodes.append(
+                {
+                    "id": face["id"],
+                    "label": f"#{face['id']}",
+                    "group": "related",
+                    "image": img_src,
+                    "shape": "circularImage" if img_src else "dot",
+                    "size": node_size,
+                    "borderWidth": 2,
+                    "color": {"border": border_color, "background": "#ffffff"},
+                    "title": f"Yüz ID: {face['id']}, Risk: {risk}, Görülme: {face['co_occurrence']}",
+                }
+            )
+
+            # Edge from Target to Related
+            graph_edges.append(
+                {
+                    "from": target_face_id,
+                    "to": face["id"],
+                    "value": face["co_occurrence"],
+                    "label": str(face["co_occurrence"]),
+                    "font": {"align": "top"},
+                    "color": {"color": "#b7b9cc", "highlight": "#4e73df"},
+                }
+            )
+
+        graph_data = {"nodes": graph_nodes, "edges": graph_edges}
+
+        # Session için optimize edilmiş graph data (Resim verisi olmadan)
+        # PDF oluşturucu resimleri kullanmıyor (sadece renkli noktalar), bu yüzden session'ı şişirmemek için resimleri siliyoruz.
+        graph_data_for_session = {"edges": graph_edges, "nodes": []}
+        for node in graph_nodes:
+            node_copy = node.copy()
+            node_copy.pop("image", None)  # Base64 resim verisini kaldır
+            graph_data_for_session["nodes"].append(node_copy)
+
         session["last_comprehensive_analysis_results"] = {
             "target_face_id": target_face_id,
+            "target_embedding": target_embedding.tolist(),
             "related_faces": session_related_faces,
             "stats": stats,
+            "graph_data": graph_data_for_session,
         }
         current_app.logger.info(
-            "Sonuçlar PDF raporu için session'a kaydedildi (görsel verisi hariç)."
+            "Sonuçlar PDF raporu için session'a kaydedildi (görsel verisi hariç, graph optimize edildi)."
         )
 
         end_time = datetime.datetime.now()
@@ -3420,6 +3615,7 @@ def comprehensive_person_analysis(face_id):
             similar_faces=[],
             related_faces=final_related_faces,
             stats=stats,
+            graph_data=graph_data,  # Template'e tam veri (resimli) gönder
         )
 
     except Exception as e:
@@ -3462,6 +3658,7 @@ def download_comprehensive_analysis_report():
     related_faces_data = analysis_data.get("related_faces", [])
     stats = analysis_data.get("stats", {})
     threshold = stats.get("threshold", 0.45)
+    graph_data = analysis_data.get("graph_data")  # Session'dan graph_data'yı al
 
     if not target_face_id or not related_faces_data:
         flash("Rapor için gerekli veriler eksik.", "warning")
@@ -3671,7 +3868,9 @@ def download_comprehensive_analysis_report():
             url_for("web.comprehensive_person_analysis", face_id=target_face_id)
         )
 
-    pdf_bytes = generate_pdf_report(search_type, username, pdf_data)
+    pdf_bytes = generate_pdf_report(
+        search_type, username, pdf_data, graph_data=graph_data
+    )
 
     if pdf_bytes is None:
         # Hata mesajını genel tut
@@ -3690,14 +3889,18 @@ def download_comprehensive_analysis_report():
     )
 
 
-@web_bp.route("/face_relationship_details/<face_id>/<target_face_id>", methods=["GET"])
+@web_bp.route(
+    "/face_relationship_details/<int:target_face_id>/<int:face_id>", methods=["GET"]
+)
 @login_required
 @limiter.limit("20 per minute")
-def face_relationship_details(face_id, target_face_id):
+def face_relationship_details(target_face_id, face_id):
     """
     İki yüzün birlikte göründüğü tüm görselleri listeler.
-    face_id: İlişkili yüzün ID'si
-    target_face_id: Hedef yüzün ID'si
+
+    Args:
+        target_face_id: Hedef yüzün ID'si (YEŞİL kutu ile gösterilir)
+        face_id: İlişkili yüzün ID'si (KIRMIZI kutu ile gösterilir)
     """
     try:
         # ID'leri doğrula ve dönüştür
@@ -3714,69 +3917,34 @@ def face_relationship_details(face_id, target_face_id):
         conn = g.db_tools.connect()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        # 1. Hedef yüz ve ilgili yüzün embedding'lerini al
-        cur.execute(
-            """
-            SELECT "ID", "FaceEmbeddingData"
-            FROM "EyeOfWebFaceID"
-            WHERE "ID" IN (%s, %s) AND "FaceEmbeddingData" IS NOT NULL
-        """,
-            (target_face_id, face_id),
-        )
+        # Session'dan pre-calculated image ID'lerini al
+        # Bu sayfa analiz sayfasından gelir, image_ids zaten orada hesaplanmıştır.
+        pre_calculated_image_ids = []
+        analysis_data = session.get("last_comprehensive_analysis_results")
+        if analysis_data and analysis_data.get("target_face_id") == target_face_id:
+            related_faces_data = analysis_data.get("related_faces", [])
+            for face_info in related_faces_data:
+                if face_info.get("id") == face_id:
+                    pre_calculated_image_ids = face_info.get("image_ids", [])
+                    current_app.logger.info(
+                        f"[DETAILS] Session'dan {len(pre_calculated_image_ids)} image_id bulundu (face_id={face_id})"
+                    )
+                    break
 
-        embedding_data = cur.fetchall()
-        if len(embedding_data) < 2:
-            flash("Yüz veya gömme vektörü bulunamadı.", "error")
+        if not pre_calculated_image_ids:
+            current_app.logger.warning(
+                f"[DETAILS] Session'da image_ids bulunamadı veya boş. Target={target_face_id}, Face={face_id}"
+            )
+            flash(
+                "Bu ilişki için görsel verisi bulunamadı. Lütfen önce Kapsamlı Analiz yapın.",
+                "warning",
+            )
             g.db_tools.releaseConnection(conn, cur)
             return redirect(url_for("web.dashboard"))
 
-        # Embedding'leri dictionary'e dönüştür
-        face_embeddings = {}
-        for data in embedding_data:
-            face_embeddings[data["ID"]] = np.array(
-                ast.literal_eval(data["FaceEmbeddingData"]), dtype=np.float32
-            )
-
-        # 2. Hedef yüze benzer yüzleri bul
-        target_group_ids = {target_face_id}
-        face_group_ids = {face_id}
-
-        cur.execute(
-            """
-            SELECT "ID", "FaceEmbeddingData"
-            FROM "EyeOfWebFaceID"
-            WHERE "ID" != %s AND "ID" != %s AND "FaceEmbeddingData" IS NOT NULL
-        """,
-            (target_face_id, face_id),
-        )
-
-        all_other_faces = cur.fetchall()
-        target_embedding = face_embeddings[target_face_id]
-        face_embedding = face_embeddings[face_id]
-
-        # Hedef yüze benzer yüzleri bul
-        for other_face in all_other_faces:
-            other_id = other_face["ID"]
-            other_embedding = np.array(
-                ast.literal_eval(other_face["FaceEmbeddingData"]), dtype=np.float32
-            )
-            if other_embedding.size == 512:
-                # Hedef yüze benzerlik
-                similarity_to_target = np.dot(target_embedding, other_embedding) / (
-                    np.linalg.norm(target_embedding) * np.linalg.norm(other_embedding)
-                )
-                if similarity_to_target >= similarity_threshold:
-                    target_group_ids.add(other_id)
-
-                # İlişkili yüze benzerlik
-                similarity_to_face = np.dot(face_embedding, other_embedding) / (
-                    np.linalg.norm(face_embedding) * np.linalg.norm(other_embedding)
-                )
-                if similarity_to_face >= similarity_threshold:
-                    face_group_ids.add(other_id)
-
-        # 3. Bu iki gruptaki yüzlerin birlikte göründüğü tüm görselleri bul
-        query = """
+        # Bulunan image ID'leri ile görselleri çek
+        placeholders = ",".join(["%s"] * len(pre_calculated_image_ids))
+        query = f"""
         SELECT DISTINCT 
             m."ImageID", 
             m."FaceID",
@@ -3796,14 +3964,11 @@ def face_relationship_details(face_id, target_face_id):
         LEFT JOIN "ImageUrlPathID" img_path ON m."ImagePathID" = img_path."ID"
         LEFT JOIN "ImageUrlEtcID" img_etc ON m."ImageUrlEtcID" = img_etc."ID"
         LEFT JOIN "ImageTitleID" it ON m."ImageTitleID" = it."ID"
-        WHERE 
-            EXISTS (SELECT 1 FROM unnest(m."FaceID") target_face WHERE target_face = ANY(%s))
-            AND
-            EXISTS (SELECT 1 FROM unnest(m."FaceID") related_face WHERE related_face = ANY(%s))
+        WHERE m."ImageID" IN ({placeholders})
         ORDER BY m."DetectionDate" DESC
         """
 
-        cur.execute(query, (list(target_group_ids), list(face_group_ids)))
+        cur.execute(query, tuple(pre_calculated_image_ids))
         images = cur.fetchall()
 
         current_app.logger.info(
@@ -3812,9 +3977,24 @@ def face_relationship_details(face_id, target_face_id):
 
         # Attempt to get expected co_occurrence from session
         expected_co_occurrence = -1  # Default/fallback value
+
+        # CRITICAL: Get target and related person embeddings for similarity matching
+        target_embedding = None
+        related_embedding = None
+        similarity_threshold_for_matching = 0.45  # Same as comprehensive analysis
+
         try:
             analysis_data = session.get("last_comprehensive_analysis_results")
             if analysis_data and analysis_data.get("target_face_id") == target_face_id:
+                # Get target person embedding
+                target_embedding_list = analysis_data.get("target_embedding")
+                if target_embedding_list:
+                    target_embedding = np.array(target_embedding_list, dtype=np.float32)
+                    current_app.logger.info(
+                        f"[REL_DETAILS] Loaded target embedding (FaceID {target_face_id}) from session"
+                    )
+
+                # Get related person embedding and co_occurrence
                 related_faces_data = analysis_data.get("related_faces", [])
                 for face_info in related_faces_data:
                     if face_info.get("id") == face_id:
@@ -3822,6 +4002,16 @@ def face_relationship_details(face_id, target_face_id):
                         current_app.logger.info(
                             f"[REL_DETAILS] Found expected co_occurrence from session: {expected_co_occurrence}"
                         )
+
+                        # Get related person embedding
+                        related_emb_list = face_info.get("embedding")
+                        if related_emb_list:
+                            related_embedding = np.array(
+                                related_emb_list, dtype=np.float32
+                            )
+                            current_app.logger.info(
+                                f"[REL_DETAILS] Loaded related embedding (FaceID {face_id}) from session"
+                            )
                         break
             else:
                 current_app.logger.warning(
@@ -3836,6 +4026,159 @@ def face_relationship_details(face_id, target_face_id):
         image_details = []  # This will store processed images for the template
         images_metadata_list = []  # ---> YENİ: PDF için meta veri listesi
         processed_hashes = set()
+
+        # Initialize group IDs with the known face IDs
+        target_group_ids = {target_face_id}
+        face_group_ids = {face_id}
+
+        # Batch Fetch FaceBoxes to avoid SQL transactions inside loop
+        all_face_ids_in_results = set()
+        for img in images:
+            f_ids = img.get("FaceID")
+            if f_ids:
+                all_face_ids_in_results.update(f_ids)
+
+        face_box_map = {}
+        # Initialize these outside try block so they're available for embedding expansion
+        pg_to_milvus_map = {}
+        milvus_to_pg_map = defaultdict(list)
+        milvus_ref_ids = []
+
+        if all_face_ids_in_results:
+            try:
+                # 1. PostgreSQL'den MilvusRefID'leri çek
+                placeholders_ref = ",".join(["%s"] * len(all_face_ids_in_results))
+                ref_query = f'SELECT "ID", "MilvusRefID" FROM "EyeOfWebFaceID" WHERE "ID" IN ({placeholders_ref})'
+                cur.execute(ref_query, tuple(all_face_ids_in_results))
+                ref_results = cur.fetchall()
+
+                for row in ref_results:
+                    if row["MilvusRefID"]:
+                        pg_id = row["ID"]
+                        m_id = row["MilvusRefID"]
+                        pg_to_milvus_map[pg_id] = m_id
+                        milvus_to_pg_map[m_id].append(pg_id)
+                        milvus_ref_ids.append(m_id)
+
+                # 2. Milvus'tan FaceBox verilerini çek (MilvusRefID kullanarak)
+                if milvus_ref_ids:
+                    # g.db_tools interface might vary, using _get_cached_milvus_collection as confirmed working for retrival obj
+                    collection = g.db_tools._get_cached_milvus_collection(
+                        EYE_OF_WEB_FACE_DATA_MILVUS_COLLECTION_NAME
+                    )
+                    if collection:
+                        # Milvus query syntax: id in [1, 2, 3]
+                        # MilvusRefID integer olmalı
+                        expr = f"id in {milvus_ref_ids}"
+                        res = collection.query(expr, output_fields=["id", "face_box"])
+
+                        count_fetched = 0
+                        for r in res:
+                            m_id = r["id"]
+                            # "face_box" verisini al
+                            fbox_data = r.get("face_box")
+
+                            if fbox_data:
+                                # Bu Milvus ID'ye karşılık gelen tüm PG ID'leri bul
+                                if m_id in milvus_to_pg_map:
+                                    for pg_face_id in milvus_to_pg_map[m_id]:
+                                        face_box_map[pg_face_id] = fbox_data
+                                        count_fetched += 1
+
+                        current_app.logger.info(
+                            f"[REL_DETAILS] Batched fetched {count_fetched} FaceBoxes from Milvus (via RefIDs)."
+                        )
+                    else:
+                        current_app.logger.error(
+                            "[REL_DETAILS] Could not get Milvus collection."
+                        )
+                else:
+                    current_app.logger.warning(
+                        "[REL_DETAILS] No MilvusRefIDs found for the target faces."
+                    )
+
+            except Exception as fb_batch_err:
+                current_app.logger.error(
+                    f"[REL_DETAILS] Error batch fetching FaceBoxes from Milvus: {fb_batch_err}"
+                )
+
+        # CRITICAL: Expand group IDs using embedding similarity
+        # This ensures that faces with different FaceIDs but belonging to the same person
+        # are correctly identified as target or related
+        if (
+            target_embedding is not None or related_embedding is not None
+        ) and all_face_ids_in_results:
+            try:
+                # Fetch embeddings from Milvus for all faces in results
+                collection = g.db_tools._get_cached_milvus_collection(
+                    EYE_OF_WEB_FACE_DATA_MILVUS_COLLECTION_NAME
+                )
+                if collection and milvus_ref_ids:
+                    # Query embeddings for all Milvus IDs
+                    expr = f"id in {milvus_ref_ids}"
+                    emb_res = collection.query(
+                        expr, output_fields=["id", "face_embedding_data"]
+                    )
+
+                    current_app.logger.info(
+                        f"[REL_DETAILS] Fetched {len(emb_res)} embeddings for group expansion"
+                    )
+
+                    for r in emb_res:
+                        m_id = r["id"]
+                        emb_data = r.get("face_embedding_data")
+
+                        if emb_data and m_id in milvus_to_pg_map:
+                            face_embedding = np.array(emb_data, dtype=np.float32)
+                            pg_ids_for_this_milvus = milvus_to_pg_map[m_id]
+
+                            # Compare with target embedding
+                            if target_embedding is not None:
+                                target_similarity = np.dot(
+                                    face_embedding, target_embedding
+                                ) / (
+                                    np.linalg.norm(face_embedding)
+                                    * np.linalg.norm(target_embedding)
+                                    + 1e-8
+                                )
+                                if (
+                                    target_similarity
+                                    >= similarity_threshold_for_matching
+                                ):
+                                    for pg_id in pg_ids_for_this_milvus:
+                                        target_group_ids.add(pg_id)
+                                        current_app.logger.warning(
+                                            f"[REL_DETAILS] MATCH TARGET: FaceID {pg_id} matched target embedding with similarity {target_similarity:.3f}"
+                                        )
+
+                            # Compare with related embedding
+                            if related_embedding is not None:
+                                related_similarity = np.dot(
+                                    face_embedding, related_embedding
+                                ) / (
+                                    np.linalg.norm(face_embedding)
+                                    * np.linalg.norm(related_embedding)
+                                    + 1e-8
+                                )
+                                if (
+                                    related_similarity
+                                    >= similarity_threshold_for_matching
+                                ):
+                                    for pg_id in pg_ids_for_this_milvus:
+                                        face_group_ids.add(pg_id)
+                                        current_app.logger.warning(
+                                            f"[REL_DETAILS] MATCH RELATED: FaceID {pg_id} matched related embedding with similarity {related_similarity:.3f}"
+                                        )
+
+                    current_app.logger.warning(
+                        f"[REL_DETAILS] FINAL GROUPS - target_group_ids: {sorted(target_group_ids)}, "
+                        f"face_group_ids: {sorted(face_group_ids)}"
+                    )
+
+            except Exception as expand_err:
+                current_app.logger.error(
+                    f"[REL_DETAILS] Error expanding group IDs via embeddings: {expand_err}"
+                )
 
         # --- Yer Tutucu Görsel Oluşturma Fonksiyonu ---
         def create_placeholder_image(width=300, height=200, text="Görsel Yok"):
@@ -3887,90 +4230,24 @@ def face_relationship_details(face_id, target_face_id):
             original_url_for_meta = None  # Meta veri için URL
 
             try:  # Outer try for the entire image processing
-                # 1. Try fetching from URL
-                image_url = build_image_url(
-                    img.get("ImageProtocol"),
-                    img.get("image_domain"),
-                    img.get("image_path"),
-                    img.get("image_etc"),
-                )
-                original_url_for_meta = image_url  # Save URL for metadata
-
-                if image_url:
-                    image_source_info += f", URL: {image_url}"
-                    current_app.logger.debug(
-                        f"[REL_DETAILS_LOOP] Attempting download from URL: {image_url}"
+                # 1. Try fetching from DB via ImageID first
+                if image_id:
+                    current_app.logger.warning(
+                        f"[REL_DETAILS_LOOP] Attempting DB fetch for ImageID: {image_id}"
                     )
-                    try:  # Inner try for download operation
-                        download_success, downloaded_data, _ = (
-                            downloadImage_defaultSafe(image_url)
-                        )
-                        if download_success and downloaded_data is not None:
-                            if (
-                                isinstance(downloaded_data, np.ndarray)
-                                and downloaded_data.size > 0
-                            ):
-                                cv_image = downloaded_data
-                                current_app.logger.debug(
-                                    f"[REL_DETAILS_LOOP] Got cv2 image directly for URL: {image_url}"
-                                )
-                            elif isinstance(downloaded_data, bytes):
-                                image_array = np.frombuffer(
-                                    downloaded_data, dtype=np.uint8
-                                )
-                                cv_image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-                                if cv_image is None or cv_image.size == 0:
-                                    current_app.logger.warning(
-                                        f"[REL_DETAILS_LOOP] Failed to decode downloaded bytes from URL: {image_url}"
-                                    )
-                                    placeholder_text = "URL Decode Hatası"
-                                else:
-                                    current_app.logger.debug(
-                                        f"[REL_DETAILS_LOOP] Successfully decoded downloaded bytes from URL: {image_url}"
-                                    )
-                            else:
-                                current_app.logger.warning(
-                                    f"[REL_DETAILS_LOOP] Unexpected data type from download ({type(downloaded_data)}) for URL: {image_url}"
-                                )
-                                cv_image = None
-                                placeholder_text = "İndirme Veri Tipi Hatası"
-                        else:
-                            current_app.logger.warning(
-                                f"[REL_DETAILS_LOOP] Download failed or empty data received for URL: {image_url}"
-                            )
-                            placeholder_text = "URL İndirme Hatası"
-                            cv_image = None
-                    except Exception as download_err:
-                        current_app.logger.error(
-                            f"[REL_DETAILS_LOOP] Error during URL download/processing {image_url}: {download_err}"
-                        )
-                        placeholder_text = "URL İşleme İstisnası"
-                        cv_image = None
-                else:
-                    current_app.logger.debug(
-                        f"[REL_DETAILS_LOOP] Image URL missing for {image_source_info}. Skipping URL."
-                    )
-                    placeholder_text = "URL Yok"
-                    # cv_image is already None
-
-                # 2. If URL failed or wasn't present, try fetching from DB via ImageID
-                if cv_image is None and image_id:
-                    current_app.logger.debug(
-                        f"[REL_DETAILS_LOOP] URL failed/missing. Attempting DB fetch for ImageID: {image_id}"
-                    )
-                    try:  # Inner try for DB fetch
+                    try:
                         success_db, img_binary = g.db_tools.getImageBinaryByID(image_id)
                         if success_db and img_binary:
                             img_binary = decompress_image(img_binary)
                             image_array = np.frombuffer(img_binary, dtype=np.uint8)
                             cv_image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
                             if cv_image is not None and cv_image.size > 0:
-                                current_app.logger.debug(
-                                    f"[REL_DETAILS_LOOP] Successfully decoded image from DB (ImageID: {image_id})."
+                                h_db, w_db = cv_image.shape[:2]
+                                current_app.logger.warning(
+                                    f"[REL_DETAILS_LOOP] Successfully decoded image from DB (ImageID: {image_id}). Dims: {w_db}x{h_db}"
                                 )
-                                placeholder_text = (
-                                    ""  # Reset placeholder text if successful
-                                )
+                                # DB image is already compressed/resized (0.5x), so no need to resize again.
+                                # Check if BBox coordinates match this scale.
                             else:
                                 current_app.logger.warning(
                                     f"[REL_DETAILS_LOOP] Failed to decode image from DB (ImageID: {image_id})"
@@ -3978,59 +4255,190 @@ def face_relationship_details(face_id, target_face_id):
                                 cv_image = None
                                 placeholder_text = "DB Decode Hatası"
                         else:
+                            # DB'de yok veya hata
+                            cv_image = None
+                            # Log seviyesini debug yapabiliriz çünkü URL deneyeceğiz
                             current_app.logger.warning(
-                                f"[REL_DETAILS_LOOP] Failed to fetch image from DB (ImageID: {image_id})"
+                                f"[REL_DETAILS_LOOP] Image not found in DB or empty (ImageID: {image_id})"
                             )
-                            placeholder_text = "DB Getirme Hatası"
-                            cv_image = None  # Ensure cv_image is None if fetch fails
                     except Exception as db_fetch_err:
                         current_app.logger.error(
                             f"[REL_DETAILS_LOOP] Error fetching/decoding DB ImageID {image_id}: {db_fetch_err}"
                         )
                         cv_image = None
                         placeholder_text = "DB İstisnası"
-                elif cv_image is None:
+
+                # 2. If DB failed (cv_image is None), try fetching from URL
+                if type(cv_image) == type(None):
+                    image_url = build_image_url(
+                        img.get("ImageProtocol"),
+                        img.get("image_domain"),
+                        img.get("image_path"),
+                        img.get("image_etc"),
+                    )
+                    original_url_for_meta = image_url  # Save URL for metadata
+
+                    if image_url:
+                        image_source_info += f", URL: {image_url}"
+                        current_app.logger.warning(
+                            f"[REL_DETAILS_LOOP] DB miss/fail. Attempting download from URL: {image_url}"
+                        )
+                        try:
+                            download_success, downloaded_data, _ = (
+                                downloadImage_defaultSafe(image_url)
+                            )
+                            if download_success and downloaded_data is not None:
+                                if (
+                                    isinstance(downloaded_data, np.ndarray)
+                                    and downloaded_data.size > 0
+                                ):
+                                    cv_image = downloaded_data
+                                    current_app.logger.warning(
+                                        f"[REL_DETAILS_LOOP] Got cv2 image directly for URL: {image_url}"
+                                    )
+                                elif isinstance(downloaded_data, bytes):
+                                    image_array = np.frombuffer(
+                                        downloaded_data, dtype=np.uint8
+                                    )
+                                    cv_image = cv2.imdecode(
+                                        image_array, cv2.IMREAD_COLOR
+                                    )
+                                    if cv_image is None or cv_image.size == 0:
+                                        current_app.logger.warning(
+                                            f"[REL_DETAILS_LOOP] Failed to decode downloaded bytes from URL: {image_url}"
+                                        )
+                                        placeholder_text = "URL Decode Hatası"
+                                    else:
+                                        current_app.logger.warning(
+                                            f"[REL_DETAILS_LOOP] Successfully decoded downloaded bytes from URL: {image_url}"
+                                        )
+                                else:
+                                    current_app.logger.warning(
+                                        f"[REL_DETAILS_LOOP] Unexpected data type from download ({type(downloaded_data)}) for URL: {image_url}"
+                                    )
+                                    cv_image = None
+                                    placeholder_text = "İndirme Veri Tipi Hatası"
+
+                                # CRITICAL: Scale URL-sourced images to match DB-sourced images
+                                # BBox coordinates in Milvus are scaled 0.5x, so images must match
+                                if cv_image is not None and cv_image.size > 0:
+                                    from lib.compress_tools import SCALA_RATIO
+
+                                    h, w = cv_image.shape[:2]
+                                    new_w = int(w * SCALA_RATIO)
+                                    new_h = int(h * SCALA_RATIO)
+                                    cv_image = cv2.resize(
+                                        cv_image,
+                                        (new_w, new_h),
+                                        interpolation=cv2.INTER_CUBIC,
+                                    )
+                                    current_app.logger.warning(
+                                        f"[REL_DETAILS_LOOP] Scaled URL image from {w}x{h} to {new_w}x{new_h} (ratio: {SCALA_RATIO})"
+                                    )
+                            else:
+                                current_app.logger.warning(
+                                    f"[REL_DETAILS_LOOP] Download failed or empty data received for URL: {image_url}"
+                                )
+                                placeholder_text = "URL İndirme Hatası"
+                                cv_image = None
+                        except Exception as download_err:
+                            current_app.logger.error(
+                                f"[REL_DETAILS_LOOP] Error during URL download/processing {image_url}: {download_err}"
+                            )
+                            placeholder_text = "URL İşleme İstisnası"
+                            cv_image = None
+                    else:
+                        current_app.logger.warning(
+                            f"[REL_DETAILS_LOOP] Image URL missing for {image_source_info}. Skipping URL."
+                        )
+                        if not placeholder_text:  # DB hatası yoksa ve URL de yoksa
+                            placeholder_text = "URL Yok"
+
+                # If still None, log warning
+                if cv_image is None:
                     current_app.logger.warning(
                         f"[REL_DETAILS_LOOP] No image data source found for {image_source_info}"
                     )
-                    # Placeholder text already indicates the reason
 
                 # 3. Process image or set placeholder flag
                 if cv_image is not None and cv_image.size > 0:
                     # Görsel işleme (yüz kutucuklarını çizme vb.)
                     img_height, img_width = cv_image.shape[:2]
+                    current_app.logger.warning(
+                        f"[REL_BBOX] ImageID {image_id}: dimensions {img_width}x{img_height}, processing {len(faces_in_image_ids) if faces_in_image_ids else 0} faces"
+                    )
                     if faces_in_image_ids:
-                        query_placeholders = ",".join(["%s"] * len(faces_in_image_ids))
-                        face_box_query = f'SELECT "ID", "FaceBox" FROM "EyeOfWebFaceID" WHERE "ID" IN ({query_placeholders})'
-                        cur.execute(face_box_query, faces_in_image_ids)
-                        face_boxes_results = cur.fetchall()
-                        face_box_map = {
-                            fb["ID"]: fb["FaceBox"] for fb in face_boxes_results
-                        }
-
+                        # Use pre-fetched map
                         for face_id_in_image in faces_in_image_ids:
-                            facebox_bytes = face_box_map.get(face_id_in_image)
-                            if facebox_bytes:
+                            facebox_data = face_box_map.get(face_id_in_image)
+                            if facebox_data:
+                                # CRITICAL FIX: FaceID kontrolü kullan (embedding benzerliği değil!)
+                                # Çünkü FaceID 231 ve 226 aynı kişi olabilir (benzer embedding)
+                                # Ama farklı FaceID = farklı renk lazım
+
                                 is_target = face_id_in_image in target_group_ids
                                 is_related = face_id_in_image in face_group_ids
+
+                                # Log for debugging
+                                current_app.logger.warning(
+                                    f"[REL_BBOX] FaceID {face_id_in_image}: "
+                                    f"is_target={is_target} (target_id={target_face_id}), "
+                                    f"is_related={is_related} (related_id={face_id})"
+                                )
+
                                 if is_target or is_related:
                                     try:  # Inner try for facebox processing
+                                        facebox_val = facebox_data
+                                        if isinstance(facebox_val, (str, bytes)):
+                                            if isinstance(facebox_val, bytes):
+                                                facebox_val = facebox_val.decode(
+                                                    "utf-8"
+                                                )
+                                            facebox_val = ast.literal_eval(facebox_val)
+
                                         facebox = np.array(
-                                            ast.literal_eval(facebox_bytes),
-                                            dtype=np.float32,
+                                            facebox_val, dtype=np.float32
                                         )
+                                        current_app.logger.warning(
+                                            f"[REL_BBOX] FaceID {face_id_in_image}: Raw facebox {facebox_val}, Parsed {facebox}"
+                                        )
+
                                         if len(facebox) == 4:
+                                            x1_raw, y1_raw, x2_raw, y2_raw = facebox
                                             x1, y1, x2, y2 = map(int, facebox)
+
+                                            # CRITICAL: Log bbox for debugging
+                                            current_app.logger.warning(
+                                                f"[REL_BBOX] FaceID {face_id_in_image}: "
+                                                f"bbox=({x1},{y1},{x2},{y2}), img={img_width}x{img_height}"
+                                            )
+
+                                            # Check if coordinates are out of bounds
+                                            if (
+                                                x1 < 0
+                                                or y1 < 0
+                                                or x2 > img_width
+                                                or y2 > img_height
+                                            ):
+                                                current_app.logger.warning(
+                                                    f"[REL_BBOX] ⚠ OUT OF BOUNDS - FaceID {face_id_in_image}: "
+                                                    f"bbox=({x1},{y1},{x2},{y2}) vs img={img_width}x{img_height}. "
+                                                    f"BBox coordinates may be for wrong image scale!"
+                                                )
                                             x1 = max(0, min(x1, img_width - 1))
                                             y1 = max(0, min(y1, img_height - 1))
                                             x2 = max(0, min(x2, img_width - 1))
                                             y2 = max(0, min(y2, img_height - 1))
                                             if x2 > x1 and y2 > y1:
-                                                color = (
-                                                    (0, 255, 0)
-                                                    if is_target
-                                                    else (0, 0, 255)
-                                                )
+                                                # REFERANS KOD: Basit renk seçimi
+                                                # İlişkili öncelikli (kırmızı), hedef yeşil
+                                                if is_related:
+                                                    color = (0, 0, 255)  # KIRMIZI
+                                                elif is_target:
+                                                    color = (0, 255, 0)  # YEŞİL
+                                                else:
+                                                    continue  # Buraya gelmemeli
+
                                                 thickness = 3
                                                 cv2.rectangle(
                                                     cv_image,
@@ -4139,9 +4547,9 @@ def face_relationship_details(face_id, target_face_id):
                 expected_co_occurrence if expected_co_occurrence != -1 else len(images)
             ),
             "actual_images_found": len(image_details),
-            "total_target_group": len(target_group_ids),
-            "total_related_group": len(face_group_ids),
-            "threshold": similarity_threshold,
+            "total_target_group": 1,  # Grup genişletme yok, sadece tek ID
+            "total_related_group": 1,  # Grup genişletme yok, sadece tek ID
+            "threshold": 0,  # Threshold artık kullanılmıyor
         }
         current_app.logger.info(f"[REL_DETAILS] Stats prepared: {stats}")
 
@@ -4271,6 +4679,9 @@ def face_relationship_details(face_id, target_face_id):
 def download_relationship_details_report(target_face_id, face_id):
     """İki yüzün birlikte göründüğü görseller için PDF raporu oluşturur ve indirir."""
 
+    current_app.logger.info(
+        f"[REL_DETAILS] Starting relationship details: target_face_id={target_face_id}, related_face_id={face_id}"
+    )
     session_key = f"last_relationship_details_{target_face_id}_{face_id}"
     relationship_data = session.get(session_key)
 

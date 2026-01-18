@@ -4,3 +4,6 @@ flask_session
 *.pyc
 .webui_secret_key
 backups/
+.insightface_cache
+temp/
+logs/

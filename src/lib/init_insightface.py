@@ -2,6 +2,8 @@ from .output.consolePrint import p_info
 from numba import jit
 import insightface
 import os
+import glob
+from pathlib import Path
 
 __MODULE_LOG_NAME__ = "INIT_INSIGHTFACE"
 
@@ -15,6 +17,22 @@ def initilate_insightface(main_conf=None, providers=None):
         providers: ONNX Runtime providers listesi (örn. ['CUDAExecutionProvider', 'CPUExecutionProvider'])
     """
     p_info("Initilating insightface", locations=__MODULE_LOG_NAME__)
+
+    # DEBUG: Check model path
+    home = str(Path.home())
+    insightface_dir = os.path.join(home, ".insightface")
+    print(f"DEBUG: Checking insightface dir: {insightface_dir}")
+    if os.path.exists(insightface_dir):
+        print(f"DEBUG: Found {insightface_dir}")
+        for root, dirs, files in os.walk(insightface_dir):
+            level = root.replace(insightface_dir, "").count(os.sep)
+            indent = " " * 4 * (level)
+            print(f"{indent}{os.path.basename(root)}/")
+            subindent = " " * 4 * (level + 1)
+            for f in files:
+                print(f"{subindent}{f}")
+    else:
+        print(f"DEBUG: {insightface_dir} does NOT exist!")
 
     # Default values for docker image
     default_providers = ["CPUExecutionProvider"]

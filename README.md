@@ -17,7 +17,7 @@
 
   ---
 
-  **[🇹🇷 Türkçe Dokümantasyon](#-türkçe-dokümantasyon)** | **[🇬🇧 English Documentation](#-english-documentation)**
+  **[🇹🇷 Türkçe Dokümantasyon](#-türkçe-dokümantasyon)** | **[🇬🇧 English Documentation](#-english-documentation)** | **[🇷🇺 Russian Documentation](README_RU.md)** | **[🇨🇳 Chinese Documentation](README_CN.md)**
 
 </div>
 
@@ -73,6 +73,9 @@
 > [!TIP]
 > **En hızlı kurulum yöntemi Docker kullanmaktır!**  
 > **Docker is the fastest way to get started!**
+>
+> **Not / Note:** Docker imajı, boyut tasarrufu için varsayılan olarak **Torch CPU** versiyonunu kullanır. GPU kullanımı için `src/Dockerfile` içerisindeki Torch kurulumunu değiştirmeniz gerekebilir.
+> **Note:** The Docker image uses the **Torch CPU** version by default to save space. You may need to modify the Torch installation in `src/Dockerfile` for GPU usage.
 
 #### 🇹🇷 Türkçe
 
@@ -166,6 +169,16 @@ Bu "hibrit veritabanı mimarisi" sayesinde EyeOfWeb, milyarlarca yüz verisi ara
 
 ---
 
+### 🎥 Örnek Kullanım ve Analiz Videoları (Example Usage & Analysis Videos)
+
+#### 1. Genel Kullanım Örneği (General Usage Example)
+[![EyeOfWeb Usage Example](https://img.youtube.com/vi/s_Ak0tiq1f4/0.jpg)](https://www.youtube.com/watch?v=s_Ak0tiq1f4)
+
+#### 2. Kapsamlı Kişi Analizi (Comprehensive Person Analysis)
+[![EyeOfWeb Comprehensive Analysis](https://img.youtube.com/vi/gdoNdIjJr5E/0.jpg)](https://www.youtube.com/watch?v=gdoNdIjJr5E)
+
+---
+
 ### 🚀 Temel Özellikler ve Yetenekler
 
 Aşağıda EyeOfWeb'in `src/app/routes/web.py` modülünde tanımlanan ve kullanıcı arayüzü/API aracılığıyla erişilebilen tüm temel özellikleri detaylı olarak açıklanmaktadır.
@@ -179,13 +192,11 @@ Bu, EyeOfWeb'in en güçlü ve sofistike analiz aracıdır. Belirli bir kişinin
 **Rota:** `/comprehensive_person_analysis/<face_id>`
 
 **Çalışma Mantığı:**
-1.  **Hedef Kişi Belirleme:** Seçilen yüz ID'si (`face_id`) hedef kişi olarak belirlenir.
-2.  **Benzer Yüzlerin Toplanması (Aynı Kişinin Farklı Fotoğrafları):** Milvus vektör veritabanında hedef kişinin yüz vektörüne benzer tüm yüzler bulunur. Belirlenen benzerlik eşiğini (varsayılan: 0.45) aşan vektörler "aynı kişi" olarak kabul edilir ve bir grup oluşturulur.
-3.  **İlgili Tüm Görsellerin Bulunması:** Hedef kişi grubundaki herhangi bir yüzü içeren tüm görseller PostgreSQL'den çekilir. Bu aşamada görüntülerin benzersizliğini sağlamak için `ImageHash` (görsel özet/fingerprint) tabanlı tekilleştirme yapılır. Böylece aynı görselin farklı kaynaklardan çekilmiş kopyaları tekrar tekrar işlenmez.
-4.  **İlişkili Yüzlerin Çıkarılması:** Bulunan görsellerdeki hedef kişi dışındaki tüm yüzler toplanır.
-5.  **İlişkili Yüzlerin Gruplanması:** Bu "diğer" yüzler de kendi aralarında benzerlik eşiğine göre gruplanır. Böylece, hedef kişiyle görülmüş olan her farklı kişi için bir grup oluşturulmuş olur.
-6.  **Birlikte Görülme Sayısının Hesaplanması:** Her bir "ilişkili kişi" grubunun, hedef kişiyle kaç farklı görselde birlikte göründüğü hesaplanır.
-7.  **Sonuçların Sunulması:** Sonuçlar, birlikte görülme sayısına göre sıralanarak sunulur. Bu, hedef kişiyle en sık etkileşimde bulunan kişilerin belirlenmesini sağlar.
+1.  **Hedef ve Çevre Belirleme:** Seçilen yüz (`face_id`) ve onunla aynı karede bulunan tüm yüzler teknik detaylarına inilmeden toplanır.
+2.  **Cluster All (Herkesi Kümele):** Hedef kişi dahil toplanan tüm yüzler, gelişmiş "Cluster All" stratejisi ile kümelenir. Bu işlem, hedef kişi ile ona benzeyen ancak farklı olan kişileri (look-alike) kusursuzca ayrıştırır.
+3.  **Hedef Kümesi Tespiti:** Oluşan kümeler arasından hangisinin "Hedef Kişi"ye ait olduğu, orijinal yüz verisi ve embedding benzerliği ile belirlenir.
+4.  **İlişki Analizi:** Sadece "Hedef Kümesi"nden bir yüz ile "Farklı Bir Küme"den bir yüzün aynı görselde yan yana geldiği durumlar tespit edilir ve sayılır.
+5.  **Sonuçlar:** Bu yöntem, **yanlış pozitifleri (false positives)** ve **kendisiyle eşleşme (self-matching)** sorunlarını ortadan kaldırarak en doğru sosyometrik analizi sunar.
 
 **Kullanım Senaryoları:**
 *   Bir kişinin sosyal çevresinin haritalanması.
@@ -671,6 +682,15 @@ Bu projenin hayata geçirilmesinde emeği geçen kişilere teşekkürlerimizi su
 
 ---
 
+#### Güvenlik Araştırmacısı / Security Research
+
+| | |
+|---|---|
+| **İsim** | **Enes Ülker** |
+| **Katkı** | Siber Güvenlik Araştırmacısı / Cyber Security Researcher |
+
+---
+
 #### Proje Sahibi / Baş Geliştirici
 
 | | |
@@ -745,13 +765,11 @@ This is EyeOfWeb's most powerful and sophisticated analysis tool. It performs a 
 **Route:** `/comprehensive_person_analysis/<face_id>`
 
 **How It Works:**
-1.  **Target Person Identification:** The selected face ID (`face_id`) is identified as the target person.
-2.  **Collecting Similar Faces (Different Photos of the Same Person):** All faces similar to the target person's face vector are found in the Milvus vector database. Vectors exceeding the specified similarity threshold (default: 0.45) are considered "same person" and grouped together.
-3.  **Finding All Related Images:** All images containing any face from the target person group are retrieved from PostgreSQL. At this stage, `ImageHash` (visual fingerprint) based deduplication is performed to ensure image uniqueness.
-4.  **Extracting Associated Faces:** All faces other than the target person in the found images are collected.
-5.  **Grouping Associated Faces:** These "other" faces are also grouped among themselves according to the similarity threshold.
-6.  **Calculating Co-occurrence Count:** How many different images each "associated person" group appears with the target person is calculated.
-7.  **Presenting Results:** Results are presented sorted by co-occurrence count.
+1.  **Target & Context Collection:** The target face (`face_id`) and ALL other faces appearing in the same frames are collected.
+2.  **Cluster All Strategy:** All collected faces (including the target) are clustered together using an advanced greedy clustering algorithm. This perfectly separates the target person from look-alikes or false detections.
+3.  **Target Cluster Identification:** The cluster belonging to the "Target Person" is identified using the original face data and embedding similarity.
+4.  **Relationship Analysis:** Only instances where a face from the "Target Cluster" appears in the same image as a face from a "Different Cluster" are counted.
+5.  **Results:** This method eliminates **false positives** and **self-matching** issues, providing the most accurate sociometric analysis.
 
 **Use Cases:**
 *   Mapping a person's social circle.

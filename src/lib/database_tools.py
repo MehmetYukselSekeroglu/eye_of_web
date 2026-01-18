@@ -1084,10 +1084,21 @@ class DatabaseTools:
                     scaled_landmark_2d_106 = original_landmark_2d_106 * scale_ratio
                     scaled_bbox = original_bbox * scale_ratio
 
+                    # CRITICAL: Normalize embedding for COSINE metric
+                    # Ensures consistent similarity calculations
+                    embedding_norm = np.linalg.norm(embedding)
+                    if embedding_norm > 0:
+                        normalized_embedding = embedding / embedding_norm
+                    else:
+                        p_warn(
+                            f"Face embedding has zero norm, using unnormalized embedding."
+                        )
+                        normalized_embedding = embedding
+
                     # Milvus'a gönderilecek veri (ID alanı YOK, Milvus kendi üretecek)
                     milvus_data_entry = {
                         # "id": ..., # ID ALANI KALDIRILDI
-                        "face_embedding_data": embedding.tolist(),
+                        "face_embedding_data": normalized_embedding.tolist(),
                         "landmarks_2d": scaled_landmark_2d_106.flatten().tolist(),
                         "face_box": scaled_bbox.tolist(),
                         "detection_score": det_score,
@@ -3664,11 +3675,22 @@ class DatabaseTools:
                 },  # ef değeri limit'ten en az %20 büyük ve minimum 1200 olmalı
             }
 
+            # CRITICAL: Normalize vector for COSINE metric
+            # COSINE similarity requires normalized vectors for accurate distance calculation
+            target_vector_np = np.array(target_vector, dtype=np.float32)
+            vector_norm = np.linalg.norm(target_vector_np)
+            if vector_norm == 0:
+                p_warn(
+                    "Target vector has zero norm, cannot normalize. Skipping search."
+                )
+                return []
+            target_vector_normalized = (target_vector_np / vector_norm).tolist()
+
             search_vector = [
-                target_vector
+                target_vector_normalized
             ]  # Milvus search_vector formatı: liste içinde liste
             p_log(
-                f"Searching in Milvus collection '{collection_name}' with limit {limit} and ef={search_params['params']['ef']}..."
+                f"Searching in Milvus collection '{collection_name}' with limit {limit} and ef={search_params['params']['ef']} (vector normalized)..."
             )
 
             milvus_results = milvus_collection.search(
@@ -3686,19 +3708,45 @@ class DatabaseTools:
 
             # 3. Sonuçları filtrele ve PostgreSQL IDs'ye dönüştür
             milvus_ids_to_convert = []
+            accepted_count = 0
+            rejected_count = 0
+
+            p_log(f"\n=== MILVUS SIMILARITY FILTERING ===")
+            p_log(
+                f"Distance threshold: {distance_threshold} (similarity threshold: {1.0 - distance_threshold})"
+            )
+            p_log(f"Processing {len(milvus_results[0])} Milvus results...\n")
+
             for hit in milvus_results[0]:
                 milvus_id = hit.id
                 distance = hit.distance
+                similarity = 1.0 - distance  # Convert COSINE distance to similarity
 
-                # Mesafe kontrolü (COSINE için similarity = 1 - distance)
+                # CRITICAL FIX: For COSINE metric, distance represents dissimilarity (0=identical, 1=different)
+                # We want faces with LOW distance (HIGH similarity)
+                # distance_threshold = 1 - similarity_threshold
+                # So: distance <= distance_threshold means similarity >= similarity_threshold
                 if distance <= distance_threshold:
                     # exclude_milvus_id varsa filtrele
                     if exclude_milvus_id is None or milvus_id != exclude_milvus_id:
                         milvus_ids_to_convert.append(milvus_id)
+                        accepted_count += 1
+                        p_log(
+                            f"✓ ACCEPTED - MilvusID {milvus_id}: distance={distance:.4f}, similarity={similarity:.4f} (>= {1.0-distance_threshold:.4f})"
+                        )
+                    else:
+                        p_log(
+                            f"✗ EXCLUDED - MilvusID {milvus_id} matches exclude_id ({exclude_id})"
+                        )
                 else:
+                    rejected_count += 1
                     p_log(
-                        f"Skipping MilvusID {milvus_id} with distance {distance} > threshold {distance_threshold}"
+                        f"✗ REJECTED - MilvusID {milvus_id}: distance={distance:.4f}, similarity={similarity:.4f} (< {1.0-distance_threshold:.4f})"
                     )
+
+            p_log(f"\n=== FILTERING RESULTS ===")
+            p_log(f"Accepted: {accepted_count}, Rejected: {rejected_count}")
+            p_log(f"Total faces passing threshold: {len(milvus_ids_to_convert)}\n")
 
             if not milvus_ids_to_convert:
                 p_log("No Milvus IDs passed filtering criteria.")

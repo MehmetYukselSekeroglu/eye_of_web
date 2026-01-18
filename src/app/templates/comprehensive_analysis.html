@@ -179,7 +179,22 @@
         border: 1px solid #e3e6f0;
     }
 
+    /* Network Graph Styles */
+    #network-container {
+        width: 100%;
+        height: 600px;
+        border: 1px solid #e3e6f0;
+        background-color: #ffffff;
+        border-radius: 0.35rem;
+    }
+    .network-card {
+        margin-bottom: 2rem;
+    }
+    .vis-network:focus {
+        outline: none;
+    }
 </style>
+<script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -247,6 +262,26 @@
                     </a>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Relationship Network Section -->
+    <div class="card shadow mb-4 network-card">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-project-diagram me-2"></i>İlişki Ağı (Etkileşimli)</h6>
+        </div>
+        <div class="card-body">
+             <div class="alert alert-light border small text-muted mb-3">
+                <i class="fas fa-mouse-pointer me-1"></i> 
+                <strong>Kullanım:</strong> Yüzlerin üzerine tıklayarak bağlantıları inceleyin.
+                <span class="badge bg-success ms-2">Yeşil: Hedef</span>
+                <span class="badge bg-danger ms-1">Kırmızı: İlişkili</span>
+             </div>
+             <div id="network-container">
+                 <div class="d-flex justify-content-center align-items-center h-100">
+                     <i class="fas fa-circle-notch fa-spin fa-3x text-gray-300"></i>
+                 </div>
+             </div>
         </div>
     </div>
 
@@ -385,6 +420,121 @@
 
 {% block scripts %}
 <script>
+    // --- Vis.js Network Graph Initialization ---
+    document.addEventListener('DOMContentLoaded', function() {
+        // Backend'den gelen veriyi al
+        const graphDataRaw = {{ graph_data | default({}) | tojson | safe }};
+        
+        if (!graphDataRaw.nodes || graphDataRaw.nodes.length === 0) {
+            document.getElementById('network-container').innerHTML = 
+                '<div class="d-flex justify-content-center align-items-center h-100 text-muted">Görüntülenecek ilişki ağı verisi bulunamadı.</div>';
+            return;
+        }
+
+        const container = document.getElementById('network-container');
+        
+        // Veri kümelerini oluştur
+        const nodes = new vis.DataSet(graphDataRaw.nodes);
+        const edges = new vis.DataSet(graphDataRaw.edges);
+        const data = { nodes: nodes, edges: edges };
+
+        // Seçenekleri belirle
+        const options = {
+            nodes: {
+                borderWidth: 2,
+                borderWidthSelected: 4,
+                font: { size: 12, face: 'Tahoma' },
+                shadow: true
+            },
+            edges: {
+                width: 2,
+                selectionWidth: 4,
+                color: { color: '#b7b9cc', highlight: '#4e73df' },
+                smooth: { type: 'continuous' }
+            },
+            physics: {
+                stabilization: false,
+                barnesHut: {
+                    gravitationalConstant: -2000,
+                    centralGravity: 0.3,
+                    springLength: 150,
+                    springConstant: 0.04,
+                    damping: 0.09
+                }
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: 200,
+                selectable: true,
+                selectConnectedEdges: true
+            },
+            layout: {
+                randomSeed: 2 // Tutarlı yerleşim
+            }
+        };
+
+        // Network'ü oluştur
+        const network = new vis.Network(container, data, options);
+
+        // --- Etkileşim ---
+        network.on("click", function (params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                const node = nodes.get(nodeId);
+                
+                // Varsayılan renkleri geri yüklemek için gerekli olabilir ama Vis.js select zaten highlight yapıyor.
+                // İstenen özellik: "hedef yeşil ilişkili kişi kırmızı olacak şekilde kare içine alınsın"
+                // Burada "kare içine alma" yerine border rengini dinamik değiştireceğiz.
+                
+                // Reset all nodes first (optional depending on UX)
+                // Ama Vis.js 'highlight' rengini options'ta belirledik. 
+                // Biz özel renk ataması yapalım.
+
+                const connectedNodeIds = network.getConnectedNodes(nodeId);
+                const allNodesToUpdate = [];
+                
+                // Seçilen düğümün rengini güncelle
+                if (node.group === 'target') {
+                    // Hedef seçildiyse Yeşil
+                    allNodesToUpdate.push({id: nodeId, color: {border: '#1cc88a', background: '#ffffff'}}); // Green
+                    // Bağlı olanlar (yani hepsi) Kırmızı? Ya da normal highlight?
+                    // Kullanıcı isteği: "ilişkisel olduğu diğer fotoğraflar ... kırmızı"
+                    connectedNodeIds.forEach(id => {
+                        allNodesToUpdate.push({id: id, color: {border: '#e74a3b', background: '#ffffff'}}); // Red
+                    });
+                } else {
+                    // İlişkili kişi seçildiyse
+                    allNodesToUpdate.push({id: nodeId, color: {border: '#e74a3b', background: '#ffffff'}}); // Red (Kendisi)
+                    // Bağlı olduğu hedef (muhtemelen tek hedef var)
+                    connectedNodeIds.forEach(id => {
+                        const connectedNode = nodes.get(id);
+                        if(connectedNode.group === 'target') {
+                             allNodesToUpdate.push({id: id, color: {border: '#1cc88a', background: '#ffffff'}}); // Green (Hedef)
+                        } else {
+                             // Başka bağlılar varsa (şu anki topolojide yok ama)
+                              allNodesToUpdate.push({id: id, color: {border: '#e74a3b', background: '#ffffff'}});
+                        }
+                    });
+                }
+                
+                nodes.update(allNodesToUpdate);
+            } else {
+                // Boşluğa tıklandı, renkleri varsayılana döndür
+                // Bunu yapmak için orijinal renkleri tutmak gerekirdi, ancak
+                // GraphDataRaw'dan tekrar yükleyebiliriz.
+                nodes.forEach(node => {
+                     // Orijinal veriden rengi bul
+                     const original = graphDataRaw.nodes.find(n => n.id === node.id);
+                     if(original && original.color) {
+                         nodes.update({id: node.id, color: original.color});
+                     }
+                });
+            }
+        });
+
+        // Stabilizasyon bittiğinde yükleme animasyonunu gizlemek gerekmiyor çünkü vis.js canvas'ı dolduruyor.
+    });
+
     // Yüzlerin gösterilmesi için yardımcı fonksiyonlar
     document.addEventListener('DOMContentLoaded', function() {
         // Tüm yüz resimlerini işle

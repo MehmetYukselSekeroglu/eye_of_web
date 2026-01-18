@@ -363,8 +363,8 @@
                                     <i class="fas fa-globe me-1"></i> {{ image.get('domain', 'N/A') }}
                                 </div>
                                 <div class="col-sm-6 text-end">
-                                    {# Dictionary access for target_face ID and image ID #}
-                                    <a href="{{ url_for('web.face_details', face_id=target_face['ID']) }}?image_id={{ image['id'] }}" class="btn btn-sm btn-outline-primary">
+                                    {# Dictionary access for related_face ID and image ID (User preference: explore related face) #}
+                                    <a href="{{ url_for('web.face_details', face_id=related_face['ID']) }}?image_id={{ image['id'] }}" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-search-plus"></i> Detay
                                     </a>
                                 </div>
