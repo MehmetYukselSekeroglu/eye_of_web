@@ -30,7 +30,65 @@ URL_FONT_SIZE = 8  # URL'ler için daha küçük font boyutu
 FACE_CUTOUT_SIZE = 40  # Size for side-by-side face cutouts
 
 
+# Türkçe → ASCII transliterasyon tablosu (Latin-1 fallback için)
+# DejaVu fontu yoksa fpdf core Helvetica'ya düşer ve Latin-1 dışı
+# karakterlerde FPDFUnicodeEncodingException fırlatır. Bu tablo bu
+# durumda çıktıyı bozulmuş ama crash-free hale getirir.
+_TR_ASCII_MAP = str.maketrans({
+    "İ": "I", "ı": "i",
+    "Ş": "S", "ş": "s",
+    "Ğ": "G", "ğ": "g",
+    "Ö": "O", "ö": "o",
+    "Ü": "U", "ü": "u",
+    "Ç": "C", "ç": "c",
+    # Yaygın diğer Unicode-only karakterler de buraya eklenebilir
+    "–": "-", "—": "-", "“": '"', "”": '"', "‘": "'", "’": "'",
+    "…": "...", "•": "*",
+})
+
+
+def _safe_pdf_text(text):
+    """
+    PDF metnini aktif fonta göre güvenli hale getirir.
+
+    - Aktif font Unicode destekliyse (DejaVu) metin dokunulmadan döner.
+    - Aksi halde (Arial/Helvetica core font, Latin-1 sınırlı) Türkçe
+      karakterler ASCII karşılıklarına çevrilir ve Latin-1 dışı kalan
+      her şey `?` ile değiştirilir. Sonuç: PDF üretimi crash etmez,
+      en kötü ihtimalle "İ" → "I" gibi bozulmuş ama okunur metin verir.
+
+    Bu, Dockerfile'da fonts-dejavu yüklemesi unutulursa ya da farklı
+    bir image'a geçilirse devreye giren emniyet kemeridir.
+    """
+    if text is None:
+        return text
+    if not isinstance(text, str):
+        text = str(text)
+    if FONT_FAMILY == "DejaVu":
+        return text  # Unicode font aktif, dokunma
+    # Latin-1 fallback modu
+    converted = text.translate(_TR_ASCII_MAP)
+    # Hâlâ Latin-1 dışı kalan karakterleri zarifçe '?'a çevir
+    return converted.encode("latin-1", errors="replace").decode("latin-1")
+
+
 class PDFReport(FPDF):
+    # ---- Latin-1 fallback emniyet kemeri ---------------------------
+    # fpdf'in cell/multi_cell metodlarını override ederek tüm yazımları
+    # _safe_pdf_text üzerinden geçiriyoruz. Böylece chapter_title,
+    # chapter_body, cover_page, vb. dahil HER PDF metin çağrısı
+    # otomatik korumadan yararlanır.
+    def cell(self, w=0, h=0, text="", *args, **kwargs):
+        # fpdf yeni sürümde 'text=', eski sürümde 'txt=' parametre adı.
+        if "txt" in kwargs:
+            kwargs["txt"] = _safe_pdf_text(kwargs.pop("txt"))
+        return super().cell(w, h, _safe_pdf_text(text), *args, **kwargs)
+
+    def multi_cell(self, w=0, h=0, text="", *args, **kwargs):
+        if "txt" in kwargs:
+            kwargs["txt"] = _safe_pdf_text(kwargs.pop("txt"))
+        return super().multi_cell(w, h, _safe_pdf_text(text), *args, **kwargs)
+    # ----------------------------------------------------------------
     def header(self):
         # Logo
         logo_y_pos = 8

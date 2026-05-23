@@ -1,11 +1,17 @@
 FROM python:3.10-slim
 
 # Install system dependencies
+# fonts-dejavu*: PDF raporlarında Türkçe karakterler (İ, ş, ğ, ı vb.) için
+# Unicode font; yoksa fpdf core Helvetica'ya düşer ve "İ at index 10"
+# FPDFUnicodeEncodingException ile çöker.
 RUN apt-get update && apt-get install -y \
     build-essential \
     libgl1 \
     libglib2.0-0 \
     curl \
+    fonts-dejavu \
+    fonts-dejavu-core \
+    fonts-dejavu-extra \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

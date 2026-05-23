@@ -158,6 +158,12 @@ except Exception as e:
 
 if not search_results:
     p_warn(f'No results found for "{keyword}".')
+    p_warn(
+        "0 sonuç döndü — bu çoğu zaman çerez onayı, captcha veya değişen DOM'dan "
+        "kaynaklanır. Backend tarafında 'debug_google_0_results_*.png' ve "
+        "'debug_google_0_results_*.html' dosyaları yazıldıysa şu an ki cwd'de "
+        "bulabilirsiniz; oradan Google'ın o an sergilediği ekranı görebilirsiniz."
+    )
     sys.exit(0)
 
 p_info(

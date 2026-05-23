@@ -1,179 +1,156 @@
-{% extends "layout.html" %}
+{% extends "base.html" %}
 
-{% block title %}Kapsamlı Kişi Analizi - ID: {{ target_face.ID }}{% endblock %}
+{% block title %}Genişletilmiş Yüz Analizi - ID: {{ target_face.id }}{% endblock %}
 
 {% block styles %}
 <style>
-    .face-card {
+    .ext-summary {
+        background-color: #f8f9fa;
         border-radius: 8px;
+        padding: 18px 20px;
+        margin-bottom: 22px;
+        border-left: 4px solid #0d6efd;
+    }
+    .ext-stat {
+        display: inline-block;
+        margin-right: 24px;
+        font-size: 0.95rem;
+    }
+    .ext-stat strong {
+        color: #0d6efd;
+        font-size: 1.25rem;
+        display: inline-block;
+        min-width: 30px;
+    }
+    .source-image-card {
+        background: #fff;
+        border: 1px solid #e3e6f0;
+        border-radius: 8px;
+        margin-bottom: 22px;
+        box-shadow: 0 0.15rem 0.5rem rgba(0,0,0,0.06);
         overflow: hidden;
-        transition: transform 0.2s;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
-    
-    .face-card:hover {
-        transform: scale(1.02);
-    }
-    
-    .face-image {
-        width: 100%;
-        height: 160px;
-        object-fit: cover;
-        background-color: #f0f0f0;
-    }
-    
-    .face-details {
-        padding: 10px 15px;
-    }
-    
-    .face-score {
-        font-size: 0.85rem;
-    }
-    
-    .risk-low { color: #28a745; }
-    .risk-medium { color: #ffc107; }
-    .risk-high { color: #dc3545; }
-    .risk-critical { color: #6f42c1; }
-    
-    .count-badge {
-        font-size: 1.1rem;
-        padding: 0.25rem 0.5rem;
-        background-color: #007bff;
-        color: white;
-        border-radius: 50px;
-        display: inline-block;
-    }
-    
-    .stats-card {
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    
-    .stats-number {
-        font-size: 1.8rem;
-        font-weight: bold;
-        color: #007bff;
-        margin-bottom: 5px;
-    }
-    
-    .stats-label {
-        font-size: 0.9rem;
-        color: #6c757d;
-    }
-    
-    .relationship-card {
-        margin-bottom: 15px;
-        border-left: 4px solid #007bff;
-    }
-    
-    .img-loader {
-        width: 100%;
-        height: 160px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: #f8f9fa;
-    }
-    
-    .domain-badge {
-        background-color: #e9ecef;
-        color: #495057;
-        padding: 3px 8px;
+    .source-image-card .source-image-thumb {
+        max-width: 100%;
+        max-height: 260px;
+        object-fit: contain;
         border-radius: 4px;
-        font-size: 0.85rem;
-        margin-right: 5px;
-        margin-bottom: 5px;
-        display: inline-block;
+        background: #f3f3f3;
+    }
+    .neighbor-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 12px;
+    }
+    .neighbor-card {
+        border: 1px solid #e3e6f0;
+        border-radius: 8px;
+        padding: 10px;
+        background: #fafbfc;
+        text-align: center;
+        transition: transform 0.15s ease;
+    }
+    .neighbor-card:hover { transform: translateY(-3px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+    .neighbor-card .nb-id {
+        font-weight: 600;
+        color: #0d6efd;
+        font-size: 0.95rem;
+        word-break: break-all;
+    }
+    .neighbor-card .nb-meta {
+        font-size: 0.82rem;
+        color: #6c757d;
+        margin-top: 4px;
+        line-height: 1.4;
+    }
+    .badge-risk-yuksek, .badge-risk-kritik { background-color: #dc3545; color: #fff; }
+    .badge-risk-orta { background-color: #fd7e14; color: #fff; }
+    .badge-risk-dusuk { background-color: #198754; color: #fff; }
+    .badge-risk-default { background-color: #6c757d; color: #fff; }
+    .target-face-card img {
+        max-width: 160px;
+        border-radius: 50%;
+        border: 4px solid #0d6efd;
+        box-shadow: 0 4px 10px rgba(13,110,253,0.25);
+    }
+    .empty-state {
+        text-align: center;
+        color: #6c757d;
+        padding: 30px 20px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container my-4">
-    <!-- Breadcrumb -->
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ url_for('web.index') }}">Ana Sayfa</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('web.face_details', face_id=target_face.ID) }}">Yüz #{{ target_face.ID }}</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Kapsamlı Kişi Analizi</li>
+            <li class="breadcrumb-item"><a href="{{ url_for('web.face_details', face_id=target_face.id) }}">Yüz #{{ target_face.id }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Genişletilmiş Analiz</li>
         </ol>
     </nav>
-    
-    <div class="row">
-        <div class="col-12">
-            <h1 class="mb-4">Kapsamlı Kişi Analizi</h1>
-            <p class="lead">Bu analiz, seçilen yüz ve benzer yüzlerin hepsini aynı kişi olarak değerlendirip, bu kişinin diğer kişilerle ilişkilerini inceler.</p>
-        </div>
+
+    <div class="d-flex align-items-center justify-content-between flex-wrap mb-3">
+        <h2 class="mb-0">
+            <i class="fas fa-project-diagram me-2 text-primary"></i>
+            Genişletilmiş Yüz Analizi
+            <small class="text-muted fs-6 ms-2">Hedef ID: {{ target_face.id }}</small>
+        </h2>
+        <a href="{{ url_for('web.face_details', face_id=target_face.id) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i> Yüz Detayına Dön
+        </a>
     </div>
-    
-    <!-- Statistics Section -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="stats-card text-center">
-                <div class="stats-number">{{ stats.similar_faces_count }}</div>
-                <div class="stats-label">Benzer Yüz</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card text-center">
-                <div class="stats-number">{{ stats.images_count }}</div>
-                <div class="stats-label">Görsel</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card text-center">
-                <div class="stats-number">{{ stats.relationships_count }}</div>
-                <div class="stats-label">İlişki</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card text-center">
-                <div class="stats-number">{{ '%.0f' | format(stats.threshold * 100) }}%</div>
-                <div class="stats-label">Benzerlik Eşiği</div>
-            </div>
-        </div>
+
+    <p class="text-muted">
+        Bu analiz, hedef yüzün kırpıldığı her bir orijinal görsel üzerinde, <strong>aynı görsel/sayfa içerisinde</strong>
+        tespit edilmiş diğer tüm yüzleri (çevre / grup) listeler. Demografik veriler Milvus'tan zenginleştirilmiştir.
+    </p>
+
+    <!-- Summary -->
+    <div class="ext-summary">
+        <div class="ext-stat"><strong>{{ stats.total_images }}</strong> Kaynak Görsel</div>
+        <div class="ext-stat"><strong>{{ stats.unique_neighbor_faces }}</strong> Benzersiz Komşu Yüz</div>
+        <div class="ext-stat"><strong>{{ stats.total_neighbor_faces }}</strong> Toplam Komşu Tespiti</div>
     </div>
-    
-    <!-- Target Face -->
+
+    <!-- Target Face Header Card -->
     <div class="row mb-4">
-        <div class="col-12">
+        <div class="col-md-12">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Hedef Yüz</h5>
+                    <h5 class="mb-0"><i class="fas fa-user-check me-2"></i>Hedef Yüz</h5>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-2">
-                            {% if target_face.ImageData %}
-                                <img src="data:image/jpeg;base64,{{ target_face.ImageData }}" class="img-fluid rounded" alt="Hedef Yüz">
+                <div class="card-body target-face-card">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            {% if target_face.image_data %}
+                                <img src="data:{{ target_face.image_mime_type | default('image/jpeg') }};base64,{{ target_face.image_data }}"
+                                     alt="Hedef Yüz">
                             {% else %}
-                                <div class="img-loader">
-                                    <span>Görsel Yok</span>
-                                </div>
+                                <img src="{{ url_for('static', filename='img/profile-placeholder.png') }}"
+                                     alt="Hedef Yüz">
                             {% endif %}
                         </div>
                         <div class="col-md-10">
-                            <h5>Yüz ID: {{ target_face.ID }}</h5>
+                            <h4 class="mb-2">Face ID: {{ target_face.id }}</h4>
                             <div class="row">
                                 <div class="col-md-4">
-                                    <p><strong>Cinsiyet:</strong> {{ target_face.Gender or 'Bilinmiyor' }}</p>
-                                    <p><strong>Yaş:</strong> {{ target_face.Age or 'Bilinmiyor' }}</p>
-                                </div>
-                                <div class="col-md-4">
-                                    <p><strong>Tespit Skoru:</strong> {{ '%.2f' | format(target_face.DetectionScore) if target_face.DetectionScore else 'Bilinmiyor' }}</p>
-                                    <p><strong>Risk Seviyesi:</strong> 
-                                        <span class="{% if target_face.RiskLevel == 'düşük' %}risk-low{% elif target_face.RiskLevel == 'orta' %}risk-medium{% elif target_face.RiskLevel == 'yüksek' %}risk-high{% elif target_face.RiskLevel == 'kritik' %}risk-critical{% endif %}">
-                                            {{ target_face.RiskLevel or 'Bilinmiyor' }}
-                                        </span>
+                                    <p class="mb-1"><strong>Cinsiyet:</strong>
+                                        {{ "Erkek" if target_face.gender else ("Kadın" if target_face.gender is defined and target_face.gender is not none else "Bilinmiyor") }}
                                     </p>
+                                    <p class="mb-1"><strong>Yaş:</strong> {{ target_face.age or "Bilinmiyor" }}</p>
                                 </div>
                                 <div class="col-md-4">
-                                    <p><strong>Domain:</strong> {{ target_face.Domain or 'Bilinmiyor' }}</p>
-                                    <p><strong>Kategori:</strong> {{ target_face.Category or 'Bilinmiyor' }}</p>
+                                    <p class="mb-1"><strong>Domain:</strong> {{ target_face.domain or "—" }}</p>
+                                    <p class="mb-1"><strong>Risk:</strong> {{ target_face.risk_level or "—" }}</p>
+                                </div>
+                                <div class="col-md-4">
+                                    {% if target_face.source_url %}
+                                    <a href="{{ target_face.source_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-external-link-alt me-1"></i> Kaynak Sayfa
+                                    </a>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -182,163 +159,139 @@
             </div>
         </div>
     </div>
-    
-    <!-- Similar Faces -->
-    {% if similar_faces|length > 1 %}
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Benzer Yüzler</h5>
-                    <span class="badge bg-light text-dark">{{ similar_faces|length - 1 }} yüz</span>
+
+    <!-- Per-Image Co-occurrences -->
+    <h3 class="mb-3"><i class="fas fa-images me-2"></i>Aynı Görseldeki Diğer Yüzler</h3>
+
+    {% if source_images %}
+        {% for img in source_images %}
+        <div class="source-image-card">
+            <div class="row g-0">
+                <div class="col-md-3 p-3 d-flex align-items-center justify-content-center">
+                    {% if img.image_data %}
+                        <img src="data:{{ img.image_mime_type | default('image/jpeg') }};base64,{{ img.image_data }}"
+                             class="source-image-thumb" alt="Kaynak Görsel #{{ img.image_id }}">
+                    {% elif img.image_url %}
+                        <img src="{{ img.image_url }}" class="source-image-thumb" alt="Kaynak Görsel"
+                             onerror='this.onerror=null; this.src="{{ url_for("static", filename="img/profile-placeholder.png") }}";'>
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-image fa-2x mb-2 d-block"></i>
+                            <small>Görsel Yok</small>
+                        </div>
+                    {% endif %}
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        {% for face in similar_faces %}
-                            {% if face.ID != target_face.ID %}
-                            <div class="col-md-2 mb-3">
-                                <div class="face-card">
-                                    {% if face.ImageData %}
-                                        <img src="data:image/jpeg;base64,{{ face.ImageData }}" class="face-image" alt="Yüz #{{ face.ID }}">
-                                    {% else %}
-                                        <div class="img-loader">
-                                            <span>Görsel Yok</span>
-                                        </div>
-                                    {% endif %}
-                                    <div class="face-details">
-                                        <div class="d-flex justify-content-between">
-                                            <strong>#{{ face.ID }}</strong>
-                                            <span class="face-score">
-                                                <i class="fas fa-star text-warning"></i> 
-                                                {{ '%.2f' | format(face.DetectionScore) if face.DetectionScore else 'N/A' }}
-                                            </span>
-                                        </div>
-                                        <small class="text-muted">{{ face.Gender or 'Bilinmiyor' }}, {{ face.Age or 'Yaş?' }}</small>
-                                    </div>
-                                </div>
+                <div class="col-md-9 p-3">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
+                        <div>
+                            <h5 class="mb-1">
+                                <i class="fas fa-fingerprint me-1 text-primary"></i>
+                                Image ID: {{ img.image_id }}
+                                {% if img.image_hash_id %}<small class="text-muted"> · Hash#{{ img.image_hash_id }}</small>{% endif %}
+                            </h5>
+                            <div class="text-muted small">
+                                {% if img.detection_date %}
+                                <span><i class="fas fa-calendar-alt me-1"></i> {{ img.detection_date.split('T')[0] }}</span>
+                                {% endif %}
+                                {% if img.domain %}
+                                <span class="ms-3"><i class="fas fa-globe me-1"></i> {{ img.domain }}</span>
+                                {% endif %}
+                                {% if img.risk_level %}
+                                <span class="ms-3 badge
+                                    {% if img.risk_level == 'yüksek' or img.risk_level == 'kritik' %}badge-risk-yuksek
+                                    {% elif img.risk_level == 'orta' %}badge-risk-orta
+                                    {% elif img.risk_level == 'düşük' %}badge-risk-dusuk
+                                    {% else %}badge-risk-default{% endif %}">
+                                    Risk: {{ img.risk_level }}
+                                </span>
+                                {% endif %}
                             </div>
-                            {% endif %}
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-primary fs-6">{{ img.other_face_count }} diğer yüz</span>
+                            <div class="mt-2">
+                                {% if img.source_url %}
+                                <a href="{{ img.source_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-external-link-alt me-1"></i> Kaynak
+                                </a>
+                                {% endif %}
+                                {% if img.image_url %}
+                                <a href="{{ img.image_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-image me-1"></i> Görsel
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if img.other_faces and img.other_faces|length > 0 %}
+                    <div class="neighbor-grid mt-2">
+                        {% for nb in img.other_faces %}
+                        <a href="{{ url_for('web.face_details', face_id=nb.face_id) }}"
+                           class="neighbor-card text-decoration-none text-dark">
+                            <div class="nb-id">#{{ nb.face_id }}</div>
+                            <div class="nb-meta">
+                                {% if nb.gender %}<div><i class="fas fa-venus-mars"></i> {{ nb.gender }}</div>{% endif %}
+                                {% if nb.age %}<div><i class="fas fa-birthday-cake"></i> {{ nb.age }}</div>{% endif %}
+                                {% if nb.detection_score %}
+                                <div><i class="fas fa-chart-line"></i>
+                                    {{ '%.0f' | format(nb.detection_score * 100) }}%
+                                </div>
+                                {% endif %}
+                            </div>
+                        </a>
                         {% endfor %}
                     </div>
-                    
-                    <!-- Domain Distribution -->
-                    {% if stats.domains %}
-                    <div class="mt-4">
-                        <h6 class="mb-2">Domain Dağılımı:</h6>
-                        <div>
-                            {% for domain in stats.domains %}
-                                <span class="domain-badge">{{ domain.domain }} ({{ domain.count }})</span>
-                            {% endfor %}
-                        </div>
+                    {% else %}
+                    <div class="empty-state mt-2">
+                        <i class="fas fa-user-slash mb-1"></i>
+                        <div>Bu görselde hedef yüz haricinde başka yüz tespit edilmemiş.</div>
                     </div>
                     {% endif %}
                 </div>
             </div>
         </div>
-    </div>
+        {% endfor %}
     {% else %}
-    <div class="alert alert-info">Belirlenen benzerlik eşiğine göre benzer yüz bulunamadı.</div>
+        <div class="alert alert-warning">
+            Hedef yüz hiçbir görselde bulunamadı veya analiz için yeterli veri yok.
+        </div>
     {% endif %}
-    
-    <!-- Relationships Section -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">İlişkiler</h5>
-                    <span class="badge bg-light text-dark">{{ relationships|length }} kişi</span>
+
+    <!-- Flat unique neighbor list -->
+    {% if neighbor_faces and neighbor_faces|length > 0 %}
+    <h3 class="mt-4 mb-3"><i class="fas fa-users me-2"></i>Tüm Komşu Yüzler (Benzersiz)</h3>
+    <div class="neighbor-grid">
+        {% for nb in neighbor_faces %}
+        <a href="{{ url_for('web.face_details', face_id=nb.face_id) }}"
+           class="neighbor-card text-decoration-none text-dark">
+            <div class="nb-id">#{{ nb.face_id }}</div>
+            <div class="nb-meta">
+                {% if nb.gender %}<div><i class="fas fa-venus-mars"></i> {{ nb.gender }}</div>{% endif %}
+                {% if nb.age %}<div><i class="fas fa-birthday-cake"></i> {{ nb.age }}</div>{% endif %}
+                {% if nb.detection_score %}
+                <div><i class="fas fa-chart-line"></i>
+                    {{ '%.0f' | format(nb.detection_score * 100) }}%
                 </div>
-                <div class="card-body">
-                    {% if relationships %}
-                        <div class="mb-3">
-                            <p>Bu kişiler, hedef kişi ile aynı görsellerde görülme sıklığına göre sıralanmıştır.</p>
-                        </div>
-                        
-                        <div class="row">
-                            {% for rel in relationships %}
-                            <div class="col-md-6 col-lg-4">
-                                <div class="card relationship-card mb-3">
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-4">
-                                                {% if rel.image_data %}
-                                                    <img src="data:image/jpeg;base64,{{ rel.image_data }}" class="img-fluid rounded" alt="Yüz #{{ rel.face_id }}">
-                                                {% elif rel.image_url %}
-                                                    <div class="img-loader">
-                                                        <span>Yükleniyor...</span>
-                                                    </div>
-                                                {% else %}
-                                                    <div class="img-loader">
-                                                        <span>Görsel Yok</span>
-                                                    </div>
-                                                {% endif %}
-                                            </div>
-                                            <div class="col-md-8">
-                                                <h6 class="mb-2">
-                                                    <a href="{{ url_for('web.face_details', face_id=rel.face_id) }}">Yüz #{{ rel.face_id }}</a>
-                                                </h6>
-                                                <div class="mb-2">
-                                                    <span class="count-badge">{{ rel.count }}x</span> görülme
-                                                </div>
-                                                <div class="mb-2 small">
-                                                    <div><i class="fas fa-venus-mars"></i> {{ rel.face.Gender or 'Bilinmiyor' }}</div>
-                                                    <div><i class="fas fa-birthday-cake"></i> {{ rel.face.Age or 'Yaş?' }}</div>
-                                                    {% if rel.face.RiskLevel %}
-                                                    <div>
-                                                        <i class="fas fa-exclamation-triangle"></i> 
-                                                        <span class="{% if rel.face.RiskLevel == 'düşük' %}risk-low{% elif rel.face.RiskLevel == 'orta' %}risk-medium{% elif rel.face.RiskLevel == 'yüksek' %}risk-high{% elif rel.face.RiskLevel == 'kritik' %}risk-critical{% endif %}">
-                                                            {{ rel.face.RiskLevel }}
-                                                        </span>
-                                                    </div>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="alert alert-info">
-                            Bu kişi ile ilişkili başka yüzler bulunamadı veya yeterli veri yok.
-                        </div>
-                    {% endif %}
-                </div>
+                {% endif %}
             </div>
-        </div>
+        </a>
+        {% endfor %}
     </div>
-    
-    <!-- Threshold Control -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Analiz Parametreleri</h5>
-                </div>
-                <div class="card-body">
-                    <form action="{{ url_for('web.extended_face_analysis', face_id=target_face.ID) }}" method="get">
-                        <div class="form-group mb-3">
-                            <label for="threshold">Benzerlik Eşiği: <span id="thresholdValue">{{ '%.0f' | format(stats.threshold * 100) }}</span>%</label>
-                            <input type="range" class="form-range" id="threshold" name="threshold" 
-                                   min="0.1" max="0.95" step="0.05" value="{{ stats.threshold }}" 
-                                   oninput="document.getElementById('thresholdValue').innerText = Math.round(this.value * 100)">
-                        </div>
-                        <button type="submit" class="btn btn-primary">Analizi Güncelle</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-    
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Load face images for related faces that only have URLs
     document.addEventListener('DOMContentLoaded', function() {
-        // You could add code here to lazy-load face images if needed
+        // Lazy image fallback handler
+        document.querySelectorAll('.source-image-thumb').forEach(function(img){
+            img.addEventListener('error', function(){
+                this.onerror = null;
+                this.src = "{{ url_for('static', filename='img/profile-placeholder.png') }}";
+            });
+        });
     });
 </script>
 {% endblock %}

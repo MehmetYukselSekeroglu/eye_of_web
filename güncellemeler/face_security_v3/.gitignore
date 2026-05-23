@@ -1,0 +1,61 @@
+# Gizli bilgiler
+.env
+*.env
+.env.*
+!.env.example
+auth_config.json
+auth_config.json.*
+!auth_config.json.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# Model ve önbellek
+*.pkl
+*.pt
+*.onnx
+*.ckpt
+
+# Çalışma zamanı dosyaları
+snapshots/
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Geliştirici / yedek dosyaları
+.backup_*/
+.secrets.baseline.bak
+
+# Model dosyaları (repo dışı tutulur, README'deki link'ten indirilir)
+models/*.pt
+models/*.onnx
+models/*.pth
+!models/.gitkeep
+
+# Yüz veritabanı dosyaları (PII/biyometrik veri — version control dışı)
+database/*.jpg
+database/*.jpeg
+database/*.png
+database/*.pkl
+!database/.gitkeep
+
+# Kişisel plaka beyaz listesi (template .example olarak commit'lenir)
+config/plate_whitelist.txt
+
+# Bilinmeyen plaka kayıtları (PII, kişisel)
+unknown_plates/

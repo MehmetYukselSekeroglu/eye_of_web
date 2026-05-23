@@ -1,0 +1,4 @@
+# Geliştirme bağımlılıkları (yalnız venv'e kurulur)
+# Çalıştırmak için: source venv/bin/activate && pip install -r requirements-dev.txt
+pre-commit>=3.5.0
+detect-secrets>=1.4.0

@@ -41,8 +41,8 @@ def generate_config():
                 # Detection threshold: 0.75 = sadece yüksek güvenilirlikli yüzleri algıla
                 "det_thresh": float(os.environ.get("INSIGHTFACE_DET_THRESH", "0.75")),
                 "det_size": [
-                    int(os.environ.get("INSIGHTFACE_DET_SIZE_W", "640")),
-                    int(os.environ.get("INSIGHTFACE_DET_SIZE_H", "640")),
+                    int(os.environ.get("INSIGHTFACE_DET_SIZE_W", "320")),
+                    int(os.environ.get("INSIGHTFACE_DET_SIZE_H", "320")),
                 ],
                 "ctx_id": int(os.environ.get("INSIGHTFACE_CTX_ID", "0")),
             },

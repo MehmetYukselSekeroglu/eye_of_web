@@ -250,7 +250,33 @@ def DirectReleaseConnection(connection: psycopg2.extensions.connection):
 class DatabaseTools:
     def __init__(self, dbConfig: dict = None):
         # Eğer dbConfig verilmezse varsayılanı kullan
-        self.dbConfig = dbConfig if dbConfig is not None else get_default_db_config()
+        base_cfg = dbConfig if dbConfig is not None else get_default_db_config()
+
+        # ENV-OVERRIDE: config.json'da donmuş "host":"db" değeri Docker
+        # ağında çözümleniyor; ancak crawler host shell'den veya farklı bir
+        # ağdan çalıştırıldığında çözümlenemiyor. Ortam değişkenleri
+        # (DB_HOST/...) ayarlıysa config.json üzerindeki değeri ezerler.
+        env_overrides = {
+            "host":     os.environ.get("DB_HOST"),
+            "port":     os.environ.get("DB_PORT"),
+            "user":     os.environ.get("DB_USER"),
+            "password": os.environ.get("DB_PASSWORD"),
+            "database": os.environ.get("DB_NAME"),
+        }
+        self.dbConfig = dict(base_cfg)
+        for k, v in env_overrides.items():
+            if v is not None and v != "":
+                # config'dekiyle farklıysa logla — gizli sürprizleri görmek için
+                if self.dbConfig.get(k) not in (None, "", v):
+                    p_log(
+                        f"DB config override (env): {k}={self.dbConfig.get(k)!r} -> {v!r}"
+                    )
+                self.dbConfig[k] = v
+
+        # Çalıştığı bilinen alternatif host'ları otomatik denemek için
+        # fallback zinciri. İlk başarılı olan host yakalanır ve sonraki
+        # bağlantı denemelerinde doğrudan kullanılır.
+        self._working_host = None  # cache: ilk başarılı bağlantıdan sonra dolar
 
         # Milvus koleksiyonları ve bağlantıları için önbellek
         self._milvus_collections_cache = {}
@@ -316,17 +342,79 @@ class DatabaseTools:
         return collection
 
     def connect(self) -> typing.Optional[psycopg2.extensions.connection]:
-        """Connects to the configured PostgreSQL database."""
-        try:
-            connection = psycopg2.connect(**self.dbConfig)
-            # Vektör adaptörünü burada kaydetme, çünkü yeni şemada vektör yok.
-            return connection
-        except psycopg2.Error as e:
-            p_error(f"Database connection error: {e}")
-            return None
+        """
+        PostgreSQL'e bağlanır.
+        Stratejisi:
+          1) Bilinen çalışan host (cache) varsa onu kullan.
+          2) Yoksa self.dbConfig['host']'u dene.
+          3) Çözümlenemez / OperationalError olursa kısa bir host
+             fallback zinciri dene: eyeofweb_db (container_name),
+             127.0.0.1, localhost.
+        Tüm denemeler başarısızsa None döndürür ve hatayı tek seferde
+        loglar (eski davranışla geriye uyumlu). Çağıranlar
+        `if conn is None:` kontrolüyle zarifçe atlayabilir.
+        """
+        primary_host = self.dbConfig.get("host")
+        # Cache hit: önceden çalışan host bulundu, doğrudan onu kullan
+        if self._working_host:
+            cfg = dict(self.dbConfig)
+            cfg["host"] = self._working_host
+            try:
+                return psycopg2.connect(**cfg)
+            except psycopg2.Error:
+                # Cache'lediğimiz host birdenbire ulaşılamaz oldu; sıfırla,
+                # aşağıdaki normal zincirine düş.
+                p_warn(
+                    f"Cache'li PostgreSQL host '{self._working_host}' artık "
+                    f"erişilemiyor — fallback zinciri tekrar denenecek."
+                )
+                self._working_host = None
+
+        # Aday host listesi (önce config'deki, sonra fallback'ler)
+        candidates = []
+        if primary_host:
+            candidates.append(primary_host)
+        for fallback in ("eyeofweb_db", "127.0.0.1", "localhost"):
+            if fallback not in candidates:
+                candidates.append(fallback)
+
+        last_err = None
+        for host in candidates:
+            cfg = dict(self.dbConfig)
+            cfg["host"] = host
+            try:
+                connection = psycopg2.connect(**cfg)
+                if host != primary_host:
+                    p_warn(
+                        f"PostgreSQL'e '{primary_host}' üzerinden bağlanılamadı; "
+                        f"fallback host '{host}' ile başarıyla bağlandı."
+                    )
+                self._working_host = host  # bir sonraki çağrıda doğrudan kullan
+                return connection
+            except psycopg2.OperationalError as oe:
+                last_err = oe
+                # Çözümlenememe / unreachable durumlarında sessizce sıradakine geç
+                continue
+            except psycopg2.Error as e:
+                # Diğer DB hataları (auth, db yok vb.) — fallback host bunları
+                # düzeltmez; tek seferde logla ve çık.
+                p_error(f"Database connection error (host={host}): {e}")
+                return None
+        # Tüm adaylar başarısız
+        p_error(
+            f"PostgreSQL bağlantısı kurulamadı. Denenen host'lar: {candidates}. "
+            f"Son hata: {last_err}"
+        )
+        return None
 
     def insert_is_crawled(self, target_url: str) -> bool:
         _connection = self.connect()
+        if _connection is None:
+            p_error(
+                f"insert_is_crawled: DB bağlantısı kurulamadı, '{target_url}' "
+                f"is_crawled olarak işaretlenemedi. Atlanıyor."
+            )
+            return False
         _cursor = _connection.cursor(cursor_factory=DictCursor)
         try:
             p_info(f"Inserting is_crawled for {target_url}")
@@ -467,6 +555,12 @@ class DatabaseTools:
 
     def is_crawled(self, target_url: str) -> bool:
         _connection = self.connect()
+        if _connection is None:
+            p_error(
+                f"is_crawled: DB bağlantısı yok, '{target_url}' güvenli "
+                f"varsayım: zaten taranmamış (False)."
+            )
+            return False
         _cursor = _connection.cursor(cursor_factory=DictCursor)
         try:
             parsedUrl = url_parser.prepare_url(target_url=target_url)
@@ -573,6 +667,9 @@ class DatabaseTools:
         from psycopg2.extras import DictCursor
 
         connection = self.connect()
+        if connection is None:
+            p_error("executeQuery: DB bağlantısı kurulamadı, boş liste dönülüyor.")
+            return []
         cursor = connection.cursor(cursor_factory=DictCursor)
 
         try:
@@ -611,6 +708,9 @@ class DatabaseTools:
         categortyNmae_return_id = None
 
         conn = self.connect()
+        if conn is None:
+            p_error("insertPageBased: DB bağlantısı kurulamadı, kayıt atlanıyor.")
+            return (None, None, None, [], [], None)
         cursor = conn.cursor(cursor_factory=DictCursor)
         try:
 
@@ -1527,6 +1627,9 @@ class DatabaseTools:
     def getAllDomains(self):
         """Sistemdeki tüm domainleri döndürür"""
         conn = self.connect()
+        if conn is None:
+            p_error("getAllDomains: DB bağlantısı kurulamadı, boş liste dönülüyor.")
+            return []
         cursor = conn.cursor(cursor_factory=DictCursor)
         try:
             STATIC_SQL_COMMAND = (
@@ -1544,6 +1647,9 @@ class DatabaseTools:
     def getAllCategories(self):
         """Sistemdeki tüm kategorileri döndürür"""
         conn = self.connect()
+        if conn is None:
+            p_error("getAllCategories: DB bağlantısı kurulamadı, boş liste dönülüyor.")
+            return []
         cursor = conn.cursor(cursor_factory=DictCursor)
         try:
             STATIC_SQL_COMMAND = """SELECT DISTINCT "Category" FROM "WebSiteCategoryID" ORDER BY "Category" """
@@ -2113,6 +2219,9 @@ class DatabaseTools:
             list: Eşleşen yüzlerin listesi
         """
         conn = self.connect()
+        if conn is None:
+            p_error("searchEgmArananlar: DB bağlantısı kurulamadı, boş liste dönülüyor.")
+            return []
         cursor = conn.cursor(cursor_factory=DictCursor)
         results = []
         try:
@@ -2224,6 +2333,11 @@ class DatabaseTools:
         """
         try:
             conn = self.connect()
+            if conn is None:
+                p_error(
+                    f"getFaceDetailsWithLandmarks: DB bağlantısı yok, FaceID={face_id} için None dönülüyor."
+                )
+                return None
             cursor = conn.cursor(cursor_factory=DictCursor)
 
             # Ana yüz verilerini getir
@@ -2272,6 +2386,11 @@ class DatabaseTools:
         """
         try:
             conn = self.connect()
+            if conn is None:
+                p_error(
+                    f"getWhitelistFaceDetailsWithLandmarks: DB bağlantısı yok, FaceID={face_id} için None."
+                )
+                return None
             cursor = conn.cursor(cursor_factory=DictCursor)
 
             # Beyaz liste yüz verilerini getir
@@ -2319,6 +2438,11 @@ class DatabaseTools:
         """
         try:
             conn = self.connect()
+            if conn is None:
+                p_error(
+                    f"getEgmFaceDetailsWithLandmarks: DB bağlantısı yok, FaceID={face_id} için None."
+                )
+                return None
             cursor = conn.cursor(cursor_factory=DictCursor)
 
             # EGM aranan yüz verilerini getir
@@ -2364,6 +2488,11 @@ class DatabaseTools:
     def getImageBinaryByID(self, image_id):
         """Verilen ImageID için BinaryImage verisini döndürür."""
         conn = self.connect()
+        if conn is None:
+            p_error(
+                f"getImageBinaryByID: DB bağlantısı yok, ImageID={image_id} için (False, None) dönülüyor."
+            )
+            return (False, None)
         cursor = conn.cursor(cursor_factory=DictCursor)
         try:
             cursor.execute(
@@ -2874,6 +3003,9 @@ class DatabaseTools:
             list: Bulunan benzer yüzlerin listesi
         """
         conn = self.connect()
+        if conn is None:
+            p_error("findSimilarWhiteListFaces: DB bağlantısı yok, boş liste dönülüyor.")
+            return []
         cursor = conn.cursor(cursor_factory=DictCursor)
         similar_faces = []
         img_cursor = None
@@ -3863,46 +3995,91 @@ class DatabaseTools:
                 p_error(f"Milvus koleksiyonu alınamadı: {collection_name}")
                 return {}
 
-            # 3. Her FaceID için Milvus verilerini al (önbellekten MilvusRefID kullan)
+            # 3. Milvus'tan TOPLU sorgu: tek bir 'id in [...]' expression ile
+            # ----------------------------------------------------------------
+            # ÖNEMLİ: Eski sürüm her face_id için ayrı bir
+            # milvus_collection.query() çağırıyordu (1235-2031 face × ~0.3s =
+            # 6-10 dk!). Yeni sürüm tüm MilvusRefID'leri tek/birkaç sorgu
+            # üzerine kümeliyor (chunked) ve sonuçları MilvusRefID -> PG FaceID
+            # ile geri haritalandırıyor. Tipik kazanç: ~6 dk → ~3-8 sn.
+            # ----------------------------------------------------------------
+            milvus_ref_to_face = {}
             for face_id in pg_face_ids:
-                cache_key = f"{face_id}"
-                milvus_ref_id = self._milvus_ref_id_cache.get(cache_key)
+                ref = self._milvus_ref_id_cache.get(f"{face_id}")
+                if ref:
+                    milvus_ref_to_face[int(ref)] = int(face_id)
 
-                if not milvus_ref_id:
-                    p_warn(f"FaceID {face_id} için MilvusRefID bulunamadı.")
-                    continue
+            if not milvus_ref_to_face:
+                p_warn("Hiçbir FaceID için MilvusRefID önbellekte bulunamadı.")
+                return results
 
-                # Milvus'tan sorgula
-                query_expr = f"id == {milvus_ref_id}"
-                milvus_results = milvus_collection.query(
-                    expr=query_expr,
-                    output_fields=[
-                        "face_embedding_data",
-                        "face_box",
-                        "landmarks_2d",
-                        "face_gender",
-                        "face_age",
-                        "detection_score",
-                    ],
-                    limit=1,
-                )
+            all_refs = list(milvus_ref_to_face.keys())
+            # Milvus 'id in (...)' expression için güvenli chunk boyutu.
+            # Pratikte tek sorgu birkaç bin elemanı kaldırabilir; 1024 makul
+            # bir kompromistir (string parse + serialize maliyeti).
+            CHUNK = 1024
+            output_fields = [
+                "face_embedding_data",
+                "face_box",
+                "landmarks_2d",
+                "face_gender",
+                "face_age",
+                "detection_score",
+            ]
 
-                if milvus_results:
-                    milvus_entity = milvus_results[0]
+            for start in range(0, len(all_refs), CHUNK):
+                chunk = all_refs[start:start + CHUNK]
+                # 'id in [1,2,3,...]' Milvus expression
+                expr = f"id in [{','.join(str(r) for r in chunk)}]"
+                try:
+                    chunk_results = milvus_collection.query(
+                        expr=expr,
+                        output_fields=output_fields,
+                        limit=len(chunk),
+                        consistency_level="Strong",
+                    )
+                except Exception as q_err:
+                    p_error(
+                        f"Milvus toplu sorgu hatası (chunk {start}-{start+len(chunk)}): {q_err}"
+                    )
+                    # Fallback: bu chunk'taki face'leri tek tek dene
+                    chunk_results = []
+                    for ref_id in chunk:
+                        try:
+                            r = milvus_collection.query(
+                                expr=f"id == {ref_id}",
+                                output_fields=output_fields,
+                                limit=1,
+                            )
+                            if r:
+                                chunk_results.extend(r)
+                        except Exception:
+                            continue
+
+                for entity in chunk_results:
+                    ref_id = entity.get("id")
+                    if ref_id is None:
+                        continue
+                    face_id = milvus_ref_to_face.get(int(ref_id))
+                    if face_id is None:
+                        continue
                     results[face_id] = {
                         "pg_face_id": face_id,
-                        "milvus_id": milvus_ref_id,
-                        "face_embedding_data": milvus_entity.get("face_embedding_data"),
-                        "face_box": milvus_entity.get("face_box"),
-                        "landmarks_2d": milvus_entity.get("landmarks_2d"),
-                        "face_gender": milvus_entity.get("face_gender"),
-                        "face_age": milvus_entity.get("face_age"),
-                        "detection_score": milvus_entity.get("detection_score"),
+                        "milvus_id": int(ref_id),
+                        "face_embedding_data": entity.get("face_embedding_data"),
+                        "face_box": entity.get("face_box"),
+                        "landmarks_2d": entity.get("landmarks_2d"),
+                        "face_gender": entity.get("face_gender"),
+                        "face_age": entity.get("face_age"),
+                        "detection_score": entity.get("detection_score"),
                     }
-                else:
-                    p_warn(
-                        f"FaceID {face_id} (MilvusRefID {milvus_ref_id}) için Milvus'ta veri bulunamadı."
-                    )
+
+            # Hâlâ kapsanmayan FaceID'ler (Milvus'ta ilgili kayıt yoksa)
+            uncovered = [fid for fid in pg_face_ids if fid not in results]
+            if uncovered:
+                p_warn(
+                    f"Milvus'ta {len(uncovered)} FaceID için kayıt bulunamadı (toplu sorgu sonrası)."
+                )
 
             p_info(
                 f"Toplu Milvus verileri başarıyla alındı: {len(results)}/{len(pg_face_ids)} yüz"

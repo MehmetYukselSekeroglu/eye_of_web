@@ -30,7 +30,7 @@ services:
       - ./logs:/app/logs
       - ./uploads:/app/uploads
       # Mount code for ease of development/updates without rebuild (optional)
-      # - .:/app
+      - .:/app
 
   crawler_worker:
     build:

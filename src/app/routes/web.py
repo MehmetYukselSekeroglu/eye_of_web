@@ -832,15 +832,20 @@ def face_details(face_id):
 @login_required
 @limiter.limit("20/minute")
 def search_similar(face_id):
-    """Belirli bir yüze benzer yüzleri bulur"""
-    # YENİ: Algoritma ve eşik değerini request args'dan al
+    """Belirli bir yüze benzer yüzleri bulur.
+
+    Spec: COSINE metriği + Threshold 0.6 (operasyonel varsayılan).
+    Threshold isteğe bağlı olarak query string ile override edilebilir.
+    """
+    # Algoritma ve eşik değerini request args'dan al
     algorithm = request.args.get("algorithm", "cosine")
+    # Operasyonel varsayılan eşik 0.6 (spec gereği)
+    default_threshold = float(os.getenv("SIMILAR_FACES_THRESHOLD", "0.6"))
     try:
-        # <<< DEĞİŞİKLİK: Varsayılan eşik 0.45 oldu >>>
-        threshold = float(request.args.get("threshold", 0.45))
+        threshold = float(request.args.get("threshold", default_threshold))
     except ValueError:
         flash("Geçersiz eşik değeri.", "danger")
-        threshold = 0.45  # Fallback
+        threshold = default_threshold
     # YENİ: CUDA kullanımını config'den al
     use_cuda_backend = current_app.config.get("USE_CUDA", False)
     print(
@@ -861,9 +866,10 @@ def search_similar(face_id):
             )
             return redirect(url_for("web.index"))
 
-        # <<< DEĞİŞİKLİK: Tekrar g.db_tools.findSimilarFacesWithImages kullan >>>
+        # COSINE araması; route'tan gelen threshold backend'e iletilir
         similar_faces = g.db_tools.findSimilarFacesWithImages(
-            face_embedding=target_embedding,  # <<< Doğru anahtar kelime: face_embedding
+            face_embedding=target_embedding,
+            threshold=threshold,
             algorithm=algorithm,
             use_cuda=use_cuda_backend,
         )
@@ -1389,7 +1395,36 @@ def dashboard():
                 )
 
                 if img_result and len(img_result) > 0:
-                    image_url = img_result[0]["ImageUrl"]
+                    raw_binary = img_result[0]["ImageUrl"]
+                    # psycopg2 BYTEA -> memoryview / bytes / None. Render-safe
+                    # bir base64 data URL'e dönüştür; aksi halde Jinja
+                    # str(memoryview) çağırır ve "<memory at 0x...>" basar
+                    # (kırık <img src>). Hatalarda image_url None bırakılır.
+                    image_url = None
+                    if raw_binary is not None:
+                        try:
+                            if isinstance(raw_binary, memoryview):
+                                raw_binary = raw_binary.tobytes()
+                            elif isinstance(raw_binary, (bytearray,)):
+                                raw_binary = bytes(raw_binary)
+                            if isinstance(raw_binary, (bytes,)):
+                                try:
+                                    decompressed = decompress_image(raw_binary)
+                                except Exception:
+                                    decompressed = raw_binary
+                                if decompressed:
+                                    mime = "image/jpeg"
+                                    if decompressed.startswith(b"\x89PNG\r\n\x1a\n"):
+                                        mime = "image/png"
+                                    image_url = (
+                                        f"data:{mime};base64,"
+                                        + base64.b64encode(decompressed).decode("utf-8")
+                                    )
+                        except Exception as enc_err:
+                            current_app.logger.warning(
+                                f"Dashboard image encode hatası: {enc_err}"
+                            )
+                            image_url = None
 
                 stats["recent_scans"].append(
                     {
@@ -2885,19 +2920,260 @@ def face_similarity_analysis(face_id):
 @limiter.limit("10 per minute")
 def extended_face_analysis(face_id):
     """
-    Extended Face Analysis - treats all faces similar to the target face as the same person,
-    then analyzes all images containing any of these faces to find relationships.
-    DEPRECATED? Bu fonksiyonun işlevselliği comprehensive_person_analysis'a benziyor.
+    Genişletilmiş Yüz Analizi (Same-Image / Çevre Analizi):
+    Seçilen yüzün kırpıldığı orijinal görsellerin (ImageID) ID'sini temel alır;
+    PostgreSQL üzerinde 'ImageBasedMain.FaceID' dizisini sorgulayarak AYNI GÖRSEL
+    içerisinde tespit edilmiş diğer tüm yüzleri çıkarır. Her bir komşu yüz için
+    Milvus üzerinden demografik öznitelikleri (gender / age / detection_score /
+    facebox) zenginleştirir ve sayfa bazlı gruplar halinde döndürür.
     """
-    # Bu fonksiyonun içeriği comprehensive_person_analysis ile çok benzer ve
-    # tablo isimleri ("Faces", "ImageData" vb.) güncel şemayla uyumsuz görünüyor.
-    # Bu nedenle bu fonksiyonu şimdilik devre dışı bırakmak veya
-    # comprehensive_person_analysis'a yönlendirmek daha doğru olabilir.
-    flash(
-        "Bu analiz aracı güncellenmektedir. Lütfen Kapsamlı Kişi Analizi\\'ni kullanın.",
-        "info",
-    )
-    return redirect(url_for("web.comprehensive_person_analysis", face_id=face_id))
+    conn = None
+    cursor = None
+    try:
+        if face_id == "0":
+            flash("Lütfen aynı görsel analizi için bir yüz seçiniz.", "info")
+            return redirect(url_for("web.search", analysis=True))
+
+        try:
+            target_face_id = int(face_id)
+        except ValueError:
+            flash(f"Geçersiz Yüz ID formatı: {face_id}", "danger")
+            return redirect(url_for("web.index"))
+
+        current_app.logger.info(
+            f"Genişletilmiş analiz (aynı görsel) başlatıldı: Face ID {target_face_id}"
+        )
+
+        # Hedef yüzün temel detayları (görseli, kaynağı, demografisi)
+        _, _, target_face_details = SearchController.get_face_details(target_face_id)
+        if not target_face_details:
+            target_face_details = {"id": target_face_id}
+
+        conn = g.db_tools.connect()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # 1) Hedef yüzün bulunduğu tüm görselleri (ImageID + Faces + URL bileşenleri) çek
+        images_query = """
+            SELECT
+                m."ID"            AS main_id,
+                m."ImageID"       AS image_id,
+                m."HashID"        AS image_hash_id,
+                m."FaceID"        AS faces_in_image,
+                m."RiskLevel"     AS risk_level,
+                m."DetectionDate" AS detection_date,
+                m."Protocol"      AS protocol,
+                bd."Domain"       AS domain,
+                up."Path"         AS path,
+                ue."Etc"          AS url_etc,
+                m."ImageProtocol" AS image_protocol,
+                bd_img."Domain"   AS image_domain,
+                ip."Path"         AS image_path,
+                iue."Etc"         AS image_etc
+            FROM "ImageBasedMain" m
+            LEFT JOIN "BaseDomainID"     bd     ON m."BaseDomainID"  = bd."ID"
+            LEFT JOIN "UrlPathID"        up     ON m."UrlPathID"     = up."ID"
+            LEFT JOIN "UrlEtcID"         ue     ON m."UrlEtcID"      = ue."ID"
+            LEFT JOIN "BaseDomainID"     bd_img ON m."ImageDomainID" = bd_img."ID"
+            LEFT JOIN "ImageUrlPathID"   ip     ON m."ImagePathID"   = ip."ID"
+            LEFT JOIN "ImageUrlEtcID"    iue    ON m."ImageUrlEtcID" = iue."ID"
+            WHERE %s = ANY(m."FaceID")
+            ORDER BY m."DetectionDate" DESC
+        """
+        cursor.execute(images_query, (target_face_id,))
+        image_rows = cursor.fetchall()
+
+        if not image_rows:
+            flash(
+                f"Hedef yüz (ID: {target_face_id}) hiçbir görselde bulunamadı.",
+                "warning",
+            )
+            g.db_tools.releaseConnection(conn, cursor)
+            return render_template(
+                "extended_face_analysis.html",
+                target_face=target_face_details,
+                source_images=[],
+                neighbor_faces=[],
+                stats={
+                    "total_images": 0,
+                    "total_neighbor_faces": 0,
+                    "unique_neighbor_faces": 0,
+                },
+            )
+
+        # 2) Tüm komşu (aynı görseldeki diğer) yüzleri topla
+        neighbor_face_ids = set()
+        for row in image_rows:
+            for fid in (row["faces_in_image"] or []):
+                if fid and fid != target_face_id:
+                    neighbor_face_ids.add(int(fid))
+
+        # 3) Komşu yüzlerin Milvus attributelarını topla (cinsiyet / yaş / skor / facebox)
+        neighbor_attributes = {}
+        for nfid in neighbor_face_ids:
+            try:
+                attrs = g.db_tools.get_milvus_face_attributes(
+                    EYE_OF_WEB_FACE_DATA_MILVUS_COLLECTION_NAME, nfid
+                )
+                if attrs:
+                    fb = attrs.get("face_box")
+                    if isinstance(fb, str):
+                        try:
+                            fb = ast.literal_eval(fb)
+                        except Exception:
+                            fb = None
+                    neighbor_attributes[nfid] = {
+                        "face_id": nfid,
+                        "gender": (
+                            "Erkek"
+                            if attrs.get("face_gender") in (True, 1, "1", "Male")
+                            else "Kadın"
+                            if attrs.get("face_gender") in (False, 0, "0", "Female")
+                            else None
+                        ),
+                        "age": attrs.get("face_age"),
+                        "detection_score": attrs.get("detection_score"),
+                        "facebox": fb,
+                    }
+                else:
+                    neighbor_attributes[nfid] = {
+                        "face_id": nfid,
+                        "gender": None,
+                        "age": None,
+                        "detection_score": None,
+                        "facebox": None,
+                    }
+            except Exception as milvus_err:
+                current_app.logger.warning(
+                    f"Komşu yüz {nfid} için Milvus öznitelikleri alınamadı: {milvus_err}"
+                )
+                neighbor_attributes[nfid] = {
+                    "face_id": nfid,
+                    "gender": None,
+                    "age": None,
+                    "detection_score": None,
+                    "facebox": None,
+                }
+
+        # 4) Görsel başına çıktı yapısını üret
+        source_images = []
+        for row in image_rows:
+            image_id = row["image_id"]
+            faces_in_image = [
+                int(f) for f in (row["faces_in_image"] or []) if f is not None
+            ]
+            others = [f for f in faces_in_image if f != target_face_id]
+
+            source_url = build_image_url(
+                row["protocol"], row["domain"], row["path"], row["url_etc"]
+            )
+            image_url = build_image_url(
+                row["image_protocol"],
+                row["image_domain"],
+                row["image_path"],
+                row["image_etc"],
+            )
+
+            # Görsel binary'sini base64'e dönüştür (varsa)
+            image_data_b64 = None
+            image_mime_type = None
+            if image_id:
+                try:
+                    ok_img, img_binary = g.db_tools.getImageBinaryByID(image_id)
+                    if ok_img and img_binary:
+                        img_binary = decompress_image(img_binary)
+                        image_data_b64 = base64.b64encode(img_binary).decode("utf-8")
+                        if img_binary.startswith(b"\x89PNG\r\n\x1a\n"):
+                            image_mime_type = "image/png"
+                        elif img_binary.startswith(b"\xff\xd8\xff"):
+                            image_mime_type = "image/jpeg"
+                        else:
+                            image_mime_type = "image/jpeg"
+                except Exception as bin_err:
+                    current_app.logger.debug(
+                        f"Görsel binary okuma hatası (ImageID {image_id}): {bin_err}"
+                    )
+
+            other_faces_payload = [
+                neighbor_attributes.get(
+                    fid,
+                    {"face_id": fid, "gender": None, "age": None,
+                     "detection_score": None, "facebox": None},
+                )
+                for fid in others
+            ]
+
+            source_images.append({
+                "image_id": image_id,
+                "image_hash_id": row["image_hash_id"],
+                "image_data": image_data_b64,
+                "image_mime_type": image_mime_type,
+                "image_url": image_url,
+                "source_url": source_url,
+                "domain": row["domain"],
+                "risk_level": row["risk_level"],
+                "detection_date": (
+                    row["detection_date"].isoformat()
+                    if row["detection_date"] else None
+                ),
+                "total_faces_in_image": len(faces_in_image),
+                "other_face_count": len(others),
+                "other_faces": other_faces_payload,
+            })
+
+        # 5) Düz (flat) komşu listesi (tablo görünümü / PDF export için)
+        flat_neighbors_seen = set()
+        flat_neighbors = []
+        for nfid in neighbor_face_ids:
+            if nfid in flat_neighbors_seen:
+                continue
+            flat_neighbors_seen.add(nfid)
+            flat_neighbors.append(neighbor_attributes.get(nfid, {"face_id": nfid}))
+
+        stats = {
+            "target_face_id": target_face_id,
+            "total_images": len(image_rows),
+            "total_neighbor_faces": sum(s["other_face_count"] for s in source_images),
+            "unique_neighbor_faces": len(neighbor_face_ids),
+        }
+
+        # Session — opsiyonel PDF export hooku için sakla
+        try:
+            session["last_extended_face_analysis"] = {
+                "target_face_id": target_face_id,
+                "stats": stats,
+                "neighbor_faces": flat_neighbors,
+            }
+        except Exception:
+            pass
+
+        g.db_tools.releaseConnection(conn, cursor)
+        conn = None
+        cursor = None
+
+        current_app.logger.info(
+            f"Genişletilmiş analiz tamamlandı: Face ID {target_face_id}, "
+            f"{stats['total_images']} görsel, {stats['unique_neighbor_faces']} benzersiz komşu yüz."
+        )
+
+        return render_template(
+            "extended_face_analysis.html",
+            target_face=target_face_details,
+            source_images=source_images,
+            neighbor_faces=flat_neighbors,
+            stats=stats,
+        )
+
+    except Exception as e:
+        current_app.logger.error(
+            f"Genişletilmiş analiz hatası (Face ID: {face_id}): {e}\n{traceback.format_exc()}"
+        )
+        flash(f"Genişletilmiş analiz sırasında hata oluştu: {str(e)}", "danger")
+        if conn:
+            try:
+                g.db_tools.releaseConnection(conn, cursor)
+            except Exception:
+                pass
+        return redirect(url_for("web.face_details", face_id=face_id))
 
 
 @web_bp.route("/comprehensive_person_analysis/<face_id>", methods=["GET"])
@@ -3318,15 +3594,24 @@ def comprehensive_person_analysis(face_id):
         group_to_representative = {}
 
         # Env configurations
-        min_relationship_count = int(os.getenv("MIN_RELATIONSHIP_COUNT", "3"))
+        # NOT: Varsayılan eski sürümde 3'tü; ancak sparse veri setlerinde
+        # (her ilişkili kişi sadece 1 görselde birlikte göründüğünde) bu eşik
+        # TÜM ilişkileri sessizce siliyor (örn. Face 318259 için 17 ilişki
+        # tespit edildi → hepsi <3 olduğundan UI'da "İlişkili Yüz: 0"
+        # gözüküyordu). 1'e indirildi; daha sıkı isteyenler env ile artırabilir.
+        min_relationship_count = int(os.getenv("MIN_RELATIONSHIP_COUNT", "1"))
         max_relationship_groups = int(os.getenv("MAX_RELATIONSHIP_GROUPS", "200"))
 
+        skipped_below_threshold = 0
+        skipped_invalid_group = 0
         for group_id, occurrence_count in group_occurrences.items():
             # Filter by minimum occurrence
             if occurrence_count < min_relationship_count:
+                skipped_below_threshold += 1
                 continue
 
             if group_id not in face_groups or not face_groups[group_id]:
+                skipped_invalid_group += 1
                 current_app.logger.warning(
                     f"Grup {group_id} geçersiz veya boş! Atlanıyor."
                 )
@@ -3334,6 +3619,13 @@ def comprehensive_person_analysis(face_id):
             representative_face_id = next(iter(face_groups[group_id]))
             representative_face_ids.append(representative_face_id)
             group_to_representative[group_id] = representative_face_id
+
+        current_app.logger.info(
+            f"İlişki filtresi: {len(group_occurrences)} aday grup → "
+            f"{len(representative_face_ids)} kabul, "
+            f"{skipped_below_threshold} eşik altı (min={min_relationship_count}), "
+            f"{skipped_invalid_group} geçersiz."
+        )
 
         # Temsilci yüzler için toplu Milvus verisi çek
         rep_start_time = datetime.datetime.now()
@@ -3489,19 +3781,69 @@ def comprehensive_person_analysis(face_id):
             if fb_list and len(fb_list) == 4:
                 target_face_box_display = np.array(fb_list, dtype=np.float32).tolist()
 
+        # ---------------------------------------------------------------
+        # İstatistikler — template'in (comprehensive_analysis.html) bütün
+        # erişim noktaları için anahtarları None-safe doldur. Eksik anahtar
+        # Jinja2 Undefined üretir, badge/condition'larda yanlış render olur.
+        # ---------------------------------------------------------------
+        # Risk seviyesini sayısala normalize et (sıralama için)
+        _risk_to_int = {
+            "düşük": 1, "dusuk": 1, "low": 1,
+            "orta": 2, "medium": 2,
+            "yüksek": 3, "yuksek": 3, "high": 3,
+            "kritik": 4, "critical": 4,
+        }
+        highest_risk_int = 0
+        unique_domains = set()
+        try:
+            for face in final_related_faces or []:
+                rl = face.get("risk_level")
+                if isinstance(rl, str):
+                    rl_n = _risk_to_int.get(rl.strip().lower(), 0)
+                elif isinstance(rl, (int, float)):
+                    rl_n = int(rl)
+                else:
+                    rl_n = 0
+                if rl_n > highest_risk_int:
+                    highest_risk_int = rl_n
+                dom = face.get("first_seen_domain")
+                if dom:
+                    unique_domains.add(dom)
+        except Exception as stats_err:
+            current_app.logger.warning(f"İstatistik özet hesaplama hatası: {stats_err}")
+
         stats = {
-            "total_similar_faces": len(target_group_ids),
-            "total_related_groups": len(group_occurrences),
-            "total_related_faces_processed": len(all_face_ids_in_images),
-            "total_unique_images": len(image_hash_map),
-            "threshold": similarity_threshold,
+            "total_similar_faces": len(target_group_ids or []),
+            "total_related_groups": len(group_occurrences or {}),
+            "total_related_faces_processed": len(all_face_ids_in_images or set()),
+            "total_unique_images": len(image_hash_map or {}),
+            "total_images": len(image_hash_map or {}),
+            "total_related_faces": len(final_related_faces or []),
+            "domains_count": len(unique_domains),
+            "highest_risk_level": highest_risk_int,
+            "threshold": float(similarity_threshold) if similarity_threshold is not None else 0.0,
+            "analysis_date": datetime.datetime.now().strftime("%d.%m.%Y %H:%M"),
         }
 
+        # ---------------------------------------------------------------
+        # Session payload — pickle/JSON güvenli (numpy ve memoryview yok).
+        # Görsel binary'leri ve embedding ağır olduğu için drop edilir.
+        # ---------------------------------------------------------------
         session_related_faces = []
-        for face in final_related_faces:
-            face_copy = face.copy()
-            face_copy.pop("image_data", None)
-            face_copy.pop("image_mime_type", None)
+        for face in (final_related_faces or []):
+            face_copy = {}
+            for k, v in face.items():
+                if k in ("image_data", "image_mime_type", "embedding"):
+                    continue  # ağır veya non-serializable
+                # numpy skaler/array'i native python'a indir
+                if isinstance(v, np.generic):
+                    face_copy[k] = v.item()
+                elif isinstance(v, np.ndarray):
+                    face_copy[k] = v.tolist()
+                elif isinstance(v, memoryview):
+                    face_copy[k] = bytes(v).decode("utf-8", errors="replace")
+                else:
+                    face_copy[k] = v
             session_related_faces.append(face_copy)
 
         # 10. Graph Data Preparation (Vis.js uyumlu)
@@ -3588,35 +3930,57 @@ def comprehensive_person_analysis(face_id):
             node_copy.pop("image", None)  # Base64 resim verisini kaldır
             graph_data_for_session["nodes"].append(node_copy)
 
-        session["last_comprehensive_analysis_results"] = {
-            "target_face_id": target_face_id,
-            "target_embedding": target_embedding.tolist(),
-            "related_faces": session_related_faces,
-            "stats": stats,
-            "graph_data": graph_data_for_session,
-        }
-        current_app.logger.info(
-            "Sonuçlar PDF raporu için session'a kaydedildi (görsel verisi hariç, graph optimize edildi)."
-        )
+        # Session yazımını korumalı yap — pickle/serialization hatası tüm
+        # response'u patlatmasın. PDF raporu için yedek session anahtarıdır.
+        try:
+            session["last_comprehensive_analysis_results"] = {
+                "target_face_id": int(target_face_id),
+                # target_embedding 512-D float vektör; PDF için zorunlu değil,
+                # session pickle yükünü azaltmak için artık SAKLAMIYORUZ.
+                "related_faces": session_related_faces,
+                "stats": stats,
+                "graph_data": graph_data_for_session,
+            }
+            current_app.logger.info(
+                "Sonuçlar PDF raporu için session'a kaydedildi (görsel verisi hariç, graph optimize edildi)."
+            )
+        except Exception as session_err:
+            current_app.logger.error(
+                f"Session yazım hatası (last_comprehensive_analysis_results): {session_err}"
+            )
+            # Render'a bağlı değil; PDF export'tan vazgeçilebilir.
 
         end_time = datetime.datetime.now()
         current_app.logger.info(
             f"Kapsamlı kişi analizi tamamlandı: Face ID {target_face_id}. Toplam süre: {end_time - start_time}"
         )
 
-        return render_template(
-            "comprehensive_analysis.html",
-            target_face={
-                "id": target_face_id,
-                "image_data": target_face_image_data,
-                "image_mime_type": target_face_mime_type,
-                "face_box": target_face_box_display,
-            },
-            similar_faces=[],
-            related_faces=final_related_faces,
-            stats=stats,
-            graph_data=graph_data,  # Template'e tam veri (resimli) gönder
-        )
+        # Render'ı korumalı yap — template Undefined / numpy / memoryview gibi
+        # bir nedenle patlarsa 500 yerine kullanıcıya temiz bir hata göster.
+        try:
+            return render_template(
+                "comprehensive_analysis.html",
+                target_face={
+                    "id": int(target_face_id),
+                    "image_data": target_face_image_data,
+                    "image_mime_type": target_face_mime_type or "image/jpeg",
+                    "face_box": target_face_box_display,
+                },
+                similar_faces=[],
+                related_faces=final_related_faces or [],
+                stats=stats,
+                graph_data=graph_data,  # Template'e tam veri (resimli) gönder
+            )
+        except Exception as render_err:
+            current_app.logger.error(
+                f"comprehensive_analysis.html render hatası: {render_err}\n{traceback.format_exc()}"
+            )
+            flash(
+                "Analiz sonucu sayfası oluşturulurken bir sunum hatası oluştu. "
+                f"Detay: {str(render_err)[:200]}",
+                "danger",
+            )
+            return redirect(url_for("web.face_details", face_id=target_face_id))
 
     except Exception as e:
         current_app.logger.error(

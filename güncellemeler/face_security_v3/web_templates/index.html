@@ -1,0 +1,1200 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Yüz Güvenliği — Face Security v3</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      YÜZ GÜVENLİĞİ <small>v3 · Web</small>
+    </div>
+
+    <!-- Sekme barı -->
+    <nav class="tab-nav">
+      <button class="tab-btn tab-active" data-tab="face">
+        <span class="tab-icon">👤</span> Yüz Tanıma
+      </button>
+      <button class="tab-btn" data-tab="plate">
+        <span class="tab-icon">🚗</span> Plaka Tanıma
+      </button>
+      <button class="tab-btn" data-tab="faces-mgmt">
+        <span class="tab-icon">🧑‍🤝‍🧑</span> Yüz Yönetimi
+      </button>
+      <button class="tab-btn" data-tab="settings">
+        <span class="tab-icon">⚙️</span> Ayarlar
+      </button>
+    </nav>
+
+    <div class="status-pill" id="statusPill">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">YÜKLENİYOR</span>
+    </div>
+  </header>
+
+  <!-- ════ YÜZ TANIMA SEKMESİ ════════════════════════════════════════════ -->
+  <main class="layout" id="tab-face">
+    <aside class="sidebar">
+      <h3>KAMERALAR</h3>
+      <ul class="cam-list" id="camList">
+        {% for cam_id, name in cameras %}
+        <li
+          class="cam-item {% if cam_id in configured_cams %}cam-configured{% else %}cam-unconfigured{% endif %}"
+          data-cam-id="{{ cam_id }}"
+        >
+          <span class="cam-id">#{{ cam_id }}</span>
+          <span class="cam-name">{{ name }}</span>
+          {% if cam_id not in configured_cams %}
+            <span class="cam-tag">.env yok</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+
+      <div class="ctl-row">
+        <button id="patrolStart" class="btn btn-amber">▶ Devriye</button>
+        <button id="patrolStop" class="btn btn-gray">■ Dur</button>
+      </div>
+
+      <div class="info-panel">
+        <div class="info-row"><strong>Bilinen kişi:</strong> <span id="peopleCount">—</span></div>
+        <div class="info-row"><strong>Telegram:</strong> <span id="tgState">—</span></div>
+        <div class="info-row"><strong>Port:</strong> <span id="portInfo">{{ port }}</span></div>
+      </div>
+    </aside>
+
+    <section class="viewer">
+      <div class="viewer-header">
+        <span>CANLI GÖRÜNTÜ</span>
+        <span id="activeCamLabel" class="cam-active-label">—</span>
+      </div>
+      <div class="viewer-frame">
+        <img id="liveImg" src="{{ url_for('video_feed') }}" alt="MJPEG canlı akış" />
+      </div>
+      <div class="viewer-foot">
+        <span>MJPEG · OpenCV → JPEG @ q=80 · InsightFace buffalo_s</span>
+        <button type="button" id="openRegisterModalBtn" class="register-trigger-btn">
+          + YENİ YÜZ KAYDET
+        </button>
+      </div>
+    </section>
+
+    <aside class="detections">
+      <!-- Son tespit kartları (known + unknown crop preview) -->
+      <div class="last-detection-row">
+        <div class="last-card" id="lastKnownCard">
+          <div class="last-card-label">SON TANINAN</div>
+          <img id="lastKnownImg" class="last-card-img" alt="" style="display:none;" />
+          <div id="lastKnownEmpty" class="last-card-empty">—</div>
+          <div id="lastKnownName" class="last-card-text">—</div>
+        </div>
+        <div class="last-card last-card-unknown" id="lastUnknownCard">
+          <div class="last-card-label">SON BİLİNMEYEN</div>
+          <img id="lastUnknownImg" class="last-card-img" alt="" style="display:none;" />
+          <div id="lastUnknownEmpty" class="last-card-empty">—</div>
+          <div id="lastUnknownTs" class="last-card-text">—</div>
+          <button id="lastUnknownAssignBtn" class="last-card-btn" style="display:none;">
+            + Bu yüzü kaydet
+          </button>
+        </div>
+      </div>
+
+      <h3>SON TESPİTLER</h3>
+      <ul id="detList" class="det-list">
+        <li class="det-empty">Henüz tespit yok</li>
+      </ul>
+    </aside>
+  </main>
+
+  <!-- ════ PLAKA TANIMA SEKMESİ ═══════════════════════════════════════════ -->
+  <main class="layout layout-plate" id="tab-plate" style="display:none;">
+    <aside class="sidebar">
+      <h3>PLAKA SİSTEMİ</h3>
+
+      <div class="plate-toggle-wrap">
+        <button id="plateToggleBtn" class="btn-plate-toggle btn-plate-off">
+          ▶ PLAKA TANIMAYI AKTİF ET
+        </button>
+        <div class="plate-status-line" id="plateStatusLine">SİSTEM PASİF</div>
+      </div>
+
+      <div class="info-panel">
+        <div class="info-row">
+          <strong>Model:</strong>
+          <span id="plateModelState">—</span>
+        </div>
+        <div class="info-row">
+          <strong>Kamera:</strong>
+          <span id="plateCamState">—</span>
+        </div>
+        <div class="info-row">
+          <strong>Hareket:</strong>
+          <span id="plateMotionState">—</span>
+        </div>
+        <div class="info-row">
+          <strong>Araç:</strong>
+          <span id="plateVehicleCount">0</span>
+        </div>
+        <div class="info-row">
+          <strong>Frame topla.:</strong>
+          <span id="plateCollection">0/10</span>
+        </div>
+      </div>
+
+      <div class="plate-last-card" id="plateLastCard" style="display:none;">
+        <div class="plate-last-label">SON TESPİT</div>
+        <div class="plate-last-text" id="plateLastText">—</div>
+        <div class="plate-last-time" id="plateLastTime">—</div>
+      </div>
+
+      <h3 style="margin-top:auto;">WHITELIST</h3>
+
+      <!-- Ekleme formu -->
+      <form id="plateAddForm" class="wl-add-form" autocomplete="off">
+        <input
+          type="text"
+          id="plateAddInput"
+          class="wl-input"
+          placeholder="34NNF012"
+          maxlength="9"
+          required
+        />
+        <input
+          type="text"
+          id="plateAddComment"
+          class="wl-input wl-input-comment"
+          placeholder="Sahip / not (ops.)"
+          maxlength="60"
+        />
+        <button type="submit" class="wl-btn-add" id="plateAddBtn">
+          + Ekle
+        </button>
+      </form>
+      <div id="plateAddMsg" class="wl-msg" style="display:none;"></div>
+
+      <ul id="plateWhitelist" class="whitelist-list">
+        <li class="det-empty">Yükleniyor…</li>
+      </ul>
+    </aside>
+
+    <section class="viewer">
+      <div class="viewer-header">
+        <span>PLAKA KAMERASI (CANLI)</span>
+        <span class="cam-active-label" id="plateStreamLabel">—</span>
+      </div>
+      <div class="viewer-frame">
+        <img id="plateImg" src="{{ url_for('plate_feed') }}" alt="Plaka MJPEG canlı akış" />
+      </div>
+      <div class="viewer-foot">
+        Motion-gated · YOLOv8 araç tespiti · EasyOCR x3 pipeline · oylama tabanlı doğrulama
+      </div>
+    </section>
+
+    <aside class="detections">
+      <h3>SON PLAKALAR</h3>
+      <ul id="plateHistory" class="det-list">
+        <li class="det-empty">Henüz tespit yok</li>
+      </ul>
+
+      <h3 style="margin-top:14px;">PROCESS LOG</h3>
+      <div class="plate-log" id="plateLog">
+        <span class="det-empty">Henüz işlem yok</span>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ════ YÜZ YÖNETİMİ SEKMESİ ════════════════════════════════════════════ -->
+  <main class="layout layout-mgmt" id="tab-faces-mgmt" style="display:none;">
+    <aside class="sidebar">
+      <h3>YÜZ ARAMA (PATROL)</h3>
+      <form id="faceSearchForm" autocomplete="off">
+        <input
+          type="text"
+          id="faceSearchInput"
+          class="field wl-input"
+          placeholder="kişi adı"
+          maxlength="50"
+        />
+        <div class="ctl-row" style="margin-top:6px;">
+          <button type="submit" class="btn btn-amber">▶ Arama Başlat</button>
+          <button type="button" class="btn btn-gray" id="faceSearchStopBtn">■ Dur</button>
+        </div>
+      </form>
+
+      <div class="search-status-card" id="faceSearchStatus">
+        <div class="search-state" id="faceSearchStateLbl">PASİF</div>
+        <div class="search-target" id="faceSearchTargetLbl">—</div>
+        <div class="search-found" id="faceSearchFoundLbl" style="display:none;"></div>
+      </div>
+
+      <h3 style="margin-top:14px;">YENİ YÜZ KAYDI</h3>
+      <p class="info-row" style="font-size:11px; color:var(--text-3); margin:0 0 6px 0;">
+        Sağdaki son bilinmeyen yüz kartından kayıt yapılır.
+      </p>
+    </aside>
+
+    <section class="viewer">
+      <div class="viewer-header">
+        <span>SON BİLİNMEYEN YÜZ</span>
+        <span id="mgmtLastUnkTs" class="cam-active-label">—</span>
+      </div>
+      <div class="viewer-frame mgmt-frame">
+        <img id="mgmtUnknownPreview" class="mgmt-large-img" style="display:none;" alt="" />
+        <div id="mgmtUnknownEmpty" class="mgmt-empty">
+          Henüz bilinmeyen yüz tespit edilmedi.<br>
+          Yüz tanıma sistemi aktifken kameraya bakan tanınmayan biri olursa burada görünür.
+        </div>
+      </div>
+      <form id="mgmtSavePersonForm" class="mgmt-save-form" autocomplete="off">
+        <input
+          type="text"
+          id="mgmtSaveName"
+          class="field wl-input"
+          placeholder="İsim (ör: ali_yilmaz)"
+          maxlength="50"
+        />
+        <button type="submit" class="btn-plate-toggle btn-plate-off" id="mgmtSaveBtn"
+          style="font-size:11px; padding:8px 14px;">
+          + DB'YE KAYDET
+        </button>
+      </form>
+      <div id="mgmtSaveMsg" class="wl-msg" style="display:none;"></div>
+    </section>
+
+    <aside class="detections">
+      <h3>KAYITLI KİŞİLER</h3>
+      <div class="info-row" style="font-size:11px; color:var(--text-3); margin-bottom:4px;">
+        <span id="peopleListCount">0</span> kişi ·
+        <a href="#" id="peopleReloadBtn" style="color:var(--accent); text-decoration:none;">↻ Yenile</a>
+      </div>
+      <ul id="peopleList" class="whitelist-list" style="max-height: 300px;">
+        <li class="det-empty">Yükleniyor…</li>
+      </ul>
+    </aside>
+  </main>
+
+  <!-- ════ AYARLAR SEKMESİ ═════════════════════════════════════════════════ -->
+  <main class="layout layout-settings" id="tab-settings" style="display:none;">
+    <div class="settings-container">
+
+      <!-- Sol kolon: Runtime config -->
+      <section class="settings-block">
+        <h3>RUNTIME AYARLAR</h3>
+        <p class="settings-help">
+          Anlık olarak motora uygulanır (.env'e yazılmaz; restart'ta sıfırlanır).
+        </p>
+
+        <div class="settings-row">
+          <label for="settThreshold">Yüz tanıma eşiği <span class="hint">(0.10-0.99)</span></label>
+          <div class="settings-input-row">
+            <input type="range" id="settThresholdRange" min="0.10" max="0.99" step="0.01" />
+            <input type="number" id="settThreshold" min="0.10" max="0.99" step="0.01" />
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <label for="settFps">Inference FPS <span class="hint">(1-30)</span></label>
+          <input type="number" id="settFps" min="1" max="30" />
+        </div>
+
+        <div class="settings-row">
+          <label for="settCooldown">Snapshot cooldown (sn) <span class="hint">(1-600)</span></label>
+          <input type="number" id="settCooldown" min="1" max="600" />
+        </div>
+
+        <div class="settings-row">
+          <label for="settPatrolScan">Devriye tarama (sn)</label>
+          <input type="number" id="settPatrolScan" min="1" max="120" />
+        </div>
+
+        <div class="settings-row">
+          <label for="settPatrolHold">Devriye bekleme (sn)</label>
+          <input type="number" id="settPatrolHold" min="1" max="600" />
+        </div>
+
+        <div class="settings-actions">
+          <button id="settRuntimeSaveBtn" class="btn-plate-toggle btn-plate-off"
+            style="font-size:12px; padding:8px 16px;">
+            💾 RUNTIME KAYDET
+          </button>
+        </div>
+        <div id="settRuntimeMsg" class="wl-msg" style="display:none; margin-top:6px;"></div>
+
+        <h3 style="margin-top:18px;">LOG DOSYALARI</h3>
+        <ul id="logsList" class="whitelist-list" style="max-height: 200px;">
+          <li class="det-empty">Yükleniyor…</li>
+        </ul>
+      </section>
+
+      <!-- Sağ kolon: Kamera RTSP URL ayarları -->
+      <section class="settings-block">
+        <h3>KAMERA RTSP URL'LERİ</h3>
+        <p class="settings-help">
+          IP değiştiğinde RTSP URL'yi düzenleyip "Tümünü Kaydet"e basın.
+          Test butonu 3 saniyede bir frame okumayı dener.
+        </p>
+
+        <div class="cam-table-wrap">
+          <table class="cam-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>İsim</th>
+                <th>RTSP URL</th>
+                <th>Etkin</th>
+                <th>Başl.</th>
+                <th>Test</th>
+              </tr>
+            </thead>
+            <tbody id="camTableBody">
+              <tr><td colspan="6" class="det-empty">Yükleniyor…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="settings-actions">
+          <button id="camSaveAllBtn" class="btn-plate-toggle btn-plate-off"
+            style="font-size:12px; padding:8px 16px;">
+            💾 TÜMÜNÜ KAYDET (.env)
+          </button>
+          <button id="camReloadBtn" class="btn btn-gray" style="margin-left:6px;">↻ Tazele</button>
+        </div>
+        <div id="camSaveMsg" class="wl-msg" style="display:none; margin-top:6px;"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ════ YÜZ KAYIT MODAL ═══════════════════════════════════════════════
+       Aktif kameradan anlık yüz yakalar, isim verir, DB'ye kaydeder.
+       Body düzeyinde overlay — herhangi bir sekmeden açılabilir.
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="registerModal" class="modal-overlay" style="display:none;" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-labelledby="registerModalTitle">
+      <div class="modal-head">
+        <span id="registerModalTitle">YENİ YÜZ KAYDET</span>
+        <button type="button" class="modal-close" id="closeRegisterModalBtn" aria-label="Kapat">×</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-help">
+          Aktif kameraya tek bir kişi baktığı sırada aşağıdaki butona basın.
+          Sistem anlık frame'i yakalayıp <code>yuzler/&lt;isim&gt;.jpg</code>
+          olarak kaydedecek ve embedding listesine ekleyecek.
+        </p>
+
+        <label for="registerNameInput" class="modal-label">
+          Kişi Adı (sadece harf, rakam, boşluk)
+        </label>
+        <input
+          type="text"
+          id="registerNameInput"
+          class="modal-input"
+          placeholder="Ali Yılmaz"
+          maxlength="50"
+          autocomplete="off"
+          spellcheck="false"
+        />
+
+        <div class="modal-actions">
+          <button type="button" class="modal-btn-secondary" id="registerCancelBtn">
+            İptal
+          </button>
+          <button type="button" class="modal-btn-primary" id="registerSubmitBtn">
+            📷 Kameradan Çek ve Kaydet
+          </button>
+        </div>
+
+        <div id="registerToast" class="modal-toast" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const api = (p, opts = {}) => fetch(p, opts).then(r => r.ok ? r.json() : Promise.reject(r));
+
+    // ──────── Tab switching ────────
+    const tabs = document.querySelectorAll('.tab-btn');
+    const panes = {
+      face: document.getElementById('tab-face'),
+      plate: document.getElementById('tab-plate'),
+      'faces-mgmt': document.getElementById('tab-faces-mgmt'),
+      settings: document.getElementById('tab-settings'),
+    };
+    tabs.forEach(btn => btn.addEventListener('click', () => {
+      tabs.forEach(b => b.classList.toggle('tab-active', b === btn));
+      const target = btn.dataset.tab;
+      Object.entries(panes).forEach(([k, el]) => { el.style.display = (k === target) ? '' : 'none'; });
+      // İlk açılışta lazy refresh — sekmeye girince ilgili veriyi çek
+      if (target === 'faces-mgmt') {
+        refreshFaceMgmt();
+      } else if (target === 'settings') {
+        refreshRuntime();
+        refreshCamTable();
+        refreshLogs();
+      }
+    }));
+
+    // ──────── Face tab: status + detections (mevcut) ────────
+    async function refreshStatus() {
+      try {
+        const s = await api('/api/status');
+        const dot = document.getElementById('statusDot');
+        const txt = document.getElementById('statusText');
+        if (s.initialized) {
+          dot.className = 'status-dot ok';
+          txt.textContent = s.active_camera ? `AKTİF · ${s.active_camera_name}` : 'HAZIR';
+        } else {
+          dot.className = 'status-dot warn';
+          txt.textContent = 'BAŞLATIYOR…';
+        }
+        document.getElementById('peopleCount').textContent = s.people_known;
+        document.getElementById('tgState').textContent = s.telegram_active ? 'aktif' : 'kapalı';
+        document.getElementById('activeCamLabel').textContent =
+          s.active_camera_name ? `#${s.active_camera} · ${s.active_camera_name}` : 'Kamera seçilmedi';
+        document.querySelectorAll('.cam-item').forEach(li => {
+          li.classList.toggle('cam-active', Number(li.dataset.camId) === s.active_camera);
+        });
+      } catch {
+        document.getElementById('statusDot').className = 'status-dot err';
+        document.getElementById('statusText').textContent = 'BACKEND HATA';
+      }
+    }
+
+    async function refreshDetections() {
+      try {
+        const list = await api('/api/detections');
+        const el = document.getElementById('detList');
+        if (!list.length) { el.innerHTML = '<li class="det-empty">Henüz tespit yok</li>'; return; }
+        el.innerHTML = list.map(d => `
+          <li class="det-item ${d.name === 'unknown' ? 'det-unknown' : 'det-known'}">
+            <div class="det-name">${d.name}</div>
+            <div class="det-meta">
+              <span class="det-score">${(d.score * 100).toFixed(0)}%</span>
+              <span class="det-cam">#${d.cam_id} ${d.cam_name}</span>
+              <span class="det-time">${d.timestamp.split('T')[1]}</span>
+            </div>
+          </li>
+        `).join('');
+      } catch {}
+    }
+
+    document.getElementById('camList').addEventListener('click', async (e) => {
+      const li = e.target.closest('.cam-item');
+      if (!li || li.classList.contains('cam-unconfigured')) return;
+      const cam_id = Number(li.dataset.camId);
+      try {
+        await api('/api/switch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cam_id }),
+        });
+        refreshStatus();
+      } catch {}
+    });
+    document.getElementById('patrolStart').addEventListener('click', async () => {
+      try { await api('/api/patrol/start', { method: 'POST' }); refreshStatus(); } catch {}
+    });
+    document.getElementById('patrolStop').addEventListener('click', async () => {
+      try { await api('/api/patrol/stop', { method: 'POST' }); refreshStatus(); } catch {}
+    });
+
+    // ──────── Plate tab ────────
+    const plateBtn = document.getElementById('plateToggleBtn');
+    let plateActive = false;
+
+    plateBtn.addEventListener('click', async () => {
+      const endpoint = plateActive ? '/api/plates/stop' : '/api/plates/start';
+      try {
+        const res = await api(endpoint, { method: 'POST' });
+        if (res && res.success === false && res.message) {
+          alert('Plaka sistemi: ' + res.message);
+        }
+        refreshPlateStatus();
+      } catch (e) {
+        console.error('plate toggle', e);
+      }
+    });
+
+    function setPlateToggleUI(active) {
+      plateActive = active;
+      if (active) {
+        plateBtn.textContent = '⏹ PLAKA TANIMAYI KAPAT';
+        plateBtn.className = 'btn-plate-toggle btn-plate-on';
+      } else {
+        plateBtn.textContent = '▶ PLAKA TANIMAYI AKTİF ET';
+        plateBtn.className = 'btn-plate-toggle btn-plate-off';
+      }
+    }
+
+    async function refreshPlateStatus() {
+      try {
+        const s = await api('/api/plates/status');
+        if (!s.available) {
+          document.getElementById('plateStatusLine').textContent = 'PLATE RUNNER YOK';
+          return;
+        }
+        setPlateToggleUI(!!s.active);
+
+        // Üst durum
+        let line = 'SİSTEM PASİF';
+        if (!s.plate_cam_url_set) line = '.env: PLATE_CAM_URL boş';
+        else if (s.initializing) line = 'MODEL YÜKLENİYOR…';
+        else if (!s.initialized) line = s.error ? `MODEL HATASI: ${s.error.slice(0, 50)}` : 'MODEL HAZIR DEĞİL';
+        else if (s.active && s.collection_progress > 0) line = `ANALİZ — ${s.collection_progress}/10 frame`;
+        else if (s.active && s.motion_detected) line = 'AKTİF — Hareket algılandı';
+        else if (s.active) line = 'AKTİF — Hareket bekleniyor';
+        document.getElementById('plateStatusLine').textContent = line;
+
+        // Yan info
+        document.getElementById('plateModelState').textContent =
+          s.initialized ? 'hazır' : (s.initializing ? 'yükleniyor' : 'kapalı');
+        document.getElementById('plateCamState').textContent =
+          s.active ? (s.camera_connected ? 'bağlı' : 'bağlanıyor…') : 'kapalı';
+        document.getElementById('plateMotionState').textContent =
+          s.active ? (s.motion_detected ? 'VAR' : 'yok') : '—';
+        document.getElementById('plateVehicleCount').textContent = s.vehicle_count || 0;
+        document.getElementById('plateCollection').textContent = `${s.collection_progress}/10`;
+
+        if (s.last_plate) {
+          document.getElementById('plateLastCard').style.display = '';
+          document.getElementById('plateLastText').textContent = s.last_plate;
+          document.getElementById('plateLastTime').textContent = `Saat: ${s.last_plate_ts}`;
+        }
+      } catch {
+        document.getElementById('plateStatusLine').textContent = 'STATUS HATA';
+      }
+    }
+
+    async function refreshPlateHistory() {
+      try {
+        const list = await api('/api/plates/history');
+        const el = document.getElementById('plateHistory');
+        if (!list.length) { el.innerHTML = '<li class="det-empty">Henüz tespit yok</li>'; return; }
+        el.innerHTML = list.map(p => `
+          <li class="det-item ${p.source === 'whitelist' ? 'det-known' : 'det-unknown'}">
+            <div class="det-name">${p.plate}</div>
+            <div class="det-meta">
+              <span class="det-score">${p.source}</span>
+              <span class="det-time">${p.timestamp}</span>
+            </div>
+          </li>
+        `).join('');
+      } catch {}
+    }
+
+    async function refreshPlateLogs() {
+      try {
+        const list = await api('/api/plates/logs');
+        const el = document.getElementById('plateLog');
+        if (!list.length) { el.innerHTML = '<span class="det-empty">Henüz işlem yok</span>'; return; }
+        el.innerHTML = list.slice(0, 25).map(l => {
+          let cls = 'log-info';
+          if (l.tag === 'error') cls = 'log-err';
+          else if (l.tag === 'warn') cls = 'log-warn';
+          else if (l.tag === 'plate') cls = 'log-plate';
+          return `<div class="log-line ${cls}">[${l.ts}] ${l.msg}</div>`;
+        }).join('');
+      } catch {}
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[c]));
+    }
+
+    async function refreshWhitelist() {
+      try {
+        const list = await api('/api/plates/whitelist');
+        const el = document.getElementById('plateWhitelist');
+        if (!list.length) {
+          el.innerHTML = '<li class="det-empty">UI bölümü boş — yukarıdan plaka ekleyin</li>';
+          return;
+        }
+        el.innerHTML = list.map(w => {
+          const plate = escapeHtml(w.plate);
+          const owner = w.owner ? escapeHtml(w.owner) : '';
+          return `
+            <li class="wl-item">
+              <span class="wl-plate">${plate}</span>
+              ${owner ? `<span class="wl-owner">${owner}</span>` : ''}
+              <button class="wl-btn-del" data-plate="${plate}" title="Sil">×</button>
+            </li>
+          `;
+        }).join('');
+      } catch (e) {
+        console.error('refreshWhitelist', e);
+      }
+    }
+
+    // Ekleme formu
+    const plateAddForm = document.getElementById('plateAddForm');
+    const plateAddInput = document.getElementById('plateAddInput');
+    const plateAddCommentInput = document.getElementById('plateAddComment');
+    const plateAddBtn = document.getElementById('plateAddBtn');
+    const plateAddMsg = document.getElementById('plateAddMsg');
+
+    function showAddMsg(text, kind) {
+      plateAddMsg.textContent = text;
+      plateAddMsg.className = 'wl-msg wl-msg-' + (kind || 'info');
+      plateAddMsg.style.display = '';
+      clearTimeout(showAddMsg._t);
+      showAddMsg._t = setTimeout(() => { plateAddMsg.style.display = 'none'; }, 4000);
+    }
+
+    plateAddForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const plate = plateAddInput.value.trim();
+      const comment = plateAddCommentInput.value.trim();
+      if (!plate) return;
+      plateAddBtn.disabled = true;
+      try {
+        const res = await fetch('/api/plates/whitelist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plate, comment }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showAddMsg(`+ ${data.plate} eklendi`, 'ok');
+          plateAddInput.value = '';
+          plateAddCommentInput.value = '';
+          refreshWhitelist();
+        } else {
+          showAddMsg(data.error || 'Bilinmeyen hata', 'err');
+        }
+      } catch (err) {
+        showAddMsg('Sunucu hatası: ' + err.message, 'err');
+      } finally {
+        plateAddBtn.disabled = false;
+        plateAddInput.focus();
+      }
+    });
+
+    // Silme — event delegation (dinamik render'a karşı dirençli)
+    document.getElementById('plateWhitelist').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.wl-btn-del');
+      if (!btn) return;
+      const plate = btn.dataset.plate;
+      if (!plate) return;
+      if (!confirm(`'${plate}' plakasını whitelist'ten silmek istediğinize emin misiniz?`)) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/plates/whitelist/' + encodeURIComponent(plate), {
+          method: 'DELETE',
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showAddMsg(`- ${plate} silindi`, 'ok');
+          refreshWhitelist();
+        } else {
+          showAddMsg(data.error || 'Silme başarısız', 'err');
+          btn.disabled = false;
+        }
+      } catch (err) {
+        showAddMsg('Sunucu hatası: ' + err.message, 'err');
+        btn.disabled = false;
+      }
+    });
+
+    // ──────── Polling ────────
+    refreshStatus(); refreshDetections();
+    refreshPlateStatus(); refreshPlateHistory(); refreshPlateLogs(); refreshWhitelist();
+    setInterval(refreshStatus, 2000);
+    setInterval(refreshDetections, 2000);
+    setInterval(refreshPlateStatus, 1000);
+    setInterval(refreshPlateHistory, 2000);
+    setInterval(refreshPlateLogs, 2000);
+    setInterval(refreshWhitelist, 30000);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FACE TAB — Son known/unknown crop önizlemeleri
+    // ═══════════════════════════════════════════════════════════════════════
+    async function refreshLastFaces() {
+      try {
+        const [k, u] = await Promise.all([
+          api('/api/faces/last_known').catch(() => ({available:false})),
+          api('/api/faces/last_unknown').catch(() => ({available:false})),
+        ]);
+        // Known
+        const kImg = document.getElementById('lastKnownImg');
+        const kEmpty = document.getElementById('lastKnownEmpty');
+        const kName = document.getElementById('lastKnownName');
+        if (k && k.available && k.image_b64) {
+          kImg.src = 'data:image/jpeg;base64,' + k.image_b64;
+          kImg.style.display = '';
+          kEmpty.style.display = 'none';
+          kName.textContent = (k.name || '?').toUpperCase();
+        } else {
+          kImg.style.display = 'none';
+          kEmpty.style.display = '';
+          kName.textContent = '—';
+        }
+        // Unknown
+        const uImg = document.getElementById('lastUnknownImg');
+        const uEmpty = document.getElementById('lastUnknownEmpty');
+        const uTs = document.getElementById('lastUnknownTs');
+        const uBtn = document.getElementById('lastUnknownAssignBtn');
+        if (u && u.available && u.image_b64) {
+          uImg.src = 'data:image/jpeg;base64,' + u.image_b64;
+          uImg.style.display = '';
+          uEmpty.style.display = 'none';
+          uTs.textContent = u.timestamp ? u.timestamp.split('T')[1] : '';
+          uBtn.style.display = '';
+        } else {
+          uImg.style.display = 'none';
+          uEmpty.style.display = '';
+          uTs.textContent = '—';
+          uBtn.style.display = 'none';
+        }
+      } catch {}
+    }
+    setInterval(refreshLastFaces, 2500);
+    refreshLastFaces();
+
+    // "+ Bu yüzü kaydet" → faces-mgmt sekmesine yönlendir
+    document.getElementById('lastUnknownAssignBtn').addEventListener('click', () => {
+      const tabBtn = document.querySelector('.tab-btn[data-tab="faces-mgmt"]');
+      if (tabBtn) tabBtn.click();
+      setTimeout(() => document.getElementById('mgmtSaveName').focus(), 200);
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // YÜZ YÖNETİMİ SEKMESİ — kişi listesi + arama + yeni kayıt
+    // ═══════════════════════════════════════════════════════════════════════
+    async function refreshPeople() {
+      try {
+        const r = await api('/api/faces/people');
+        const list = (r && r.people) || [];
+        document.getElementById('peopleListCount').textContent = list.length;
+        const el = document.getElementById('peopleList');
+        if (!list.length) {
+          el.innerHTML = '<li class="det-empty">DB boş</li>';
+          return;
+        }
+        el.innerHTML = list.map(n => {
+          const safe = escapeHtml(n);
+          return `
+            <li class="wl-item">
+              <img class="people-thumb" src="/api/faces/photo/${encodeURIComponent(safe)}" alt="" onerror="this.style.display='none'" />
+              <span class="wl-plate">${safe}</span>
+              <button class="wl-btn-del" data-name="${safe}" title="Sil">×</button>
+            </li>`;
+        }).join('');
+      } catch {}
+    }
+
+    async function refreshSearchStatus() {
+      try {
+        const s = await api('/api/faces/search/status');
+        document.getElementById('faceSearchStateLbl').textContent = s.active ? 'AKTİF (DEVRİYE)' : 'PASİF';
+        document.getElementById('faceSearchStateLbl').className = 'search-state ' + (s.active ? 'st-active' : '');
+        document.getElementById('faceSearchTargetLbl').textContent = s.target ? `Hedef: ${s.target.toUpperCase()}` : '—';
+        const found = document.getElementById('faceSearchFoundLbl');
+        if (s.found) {
+          found.style.display = '';
+          found.textContent = `✅ BULUNDU @ ${s.found_cam || '?'} (${s.found_ts ? s.found_ts.split('T')[1] : ''})`;
+        } else {
+          found.style.display = 'none';
+        }
+      } catch {}
+    }
+
+    async function refreshMgmtLastUnknown() {
+      try {
+        const u = await api('/api/faces/last_unknown');
+        const img = document.getElementById('mgmtUnknownPreview');
+        const empty = document.getElementById('mgmtUnknownEmpty');
+        const ts = document.getElementById('mgmtLastUnkTs');
+        if (u && u.available && u.image_b64) {
+          img.src = 'data:image/jpeg;base64,' + u.image_b64;
+          img.style.display = '';
+          empty.style.display = 'none';
+          ts.textContent = u.timestamp ? `Saat: ${u.timestamp.split('T')[1]}` : '';
+        } else {
+          img.style.display = 'none';
+          empty.style.display = '';
+          ts.textContent = '—';
+        }
+      } catch {}
+    }
+
+    function refreshFaceMgmt() {
+      refreshPeople();
+      refreshSearchStatus();
+      refreshMgmtLastUnknown();
+    }
+
+    // Yüz arama form
+    document.getElementById('faceSearchForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('faceSearchInput').value.trim();
+      if (!name) return;
+      try {
+        const res = await fetch('/api/faces/search/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+        const data = await res.json();
+        if (!res.ok) alert('Hata: ' + (data.error || 'bilinmeyen'));
+        refreshSearchStatus();
+      } catch (err) { alert('Sunucu hatası: ' + err.message); }
+    });
+    document.getElementById('faceSearchStopBtn').addEventListener('click', async () => {
+      try {
+        await fetch('/api/faces/search/stop', { method: 'POST' });
+        refreshSearchStatus();
+      } catch {}
+    });
+
+    // Yeni yüz kayıt (mgmt sekmesinde)
+    document.getElementById('mgmtSavePersonForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('mgmtSaveName').value.trim();
+      const msg = document.getElementById('mgmtSaveMsg');
+      if (!name) return;
+      const btn = document.getElementById('mgmtSaveBtn');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/faces/save_unknown', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          msg.className = 'wl-msg wl-msg-ok';
+          msg.textContent = `+ ${data.name} kaydedildi ve embedding'lere eklendi.`;
+          document.getElementById('mgmtSaveName').value = '';
+          refreshPeople();
+        } else {
+          msg.className = 'wl-msg wl-msg-err';
+          msg.textContent = data.error || 'Bilinmeyen hata';
+        }
+        msg.style.display = '';
+        setTimeout(() => { msg.style.display = 'none'; }, 5000);
+      } catch (err) {
+        msg.className = 'wl-msg wl-msg-err';
+        msg.textContent = 'Sunucu hatası: ' + err.message;
+        msg.style.display = '';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Kişi silme (event delegation)
+    document.getElementById('peopleList').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.wl-btn-del');
+      if (!btn) return;
+      const name = btn.dataset.name;
+      if (!name) return;
+      if (!confirm(`'${name}' kişisini DB'den silmek istediğinize emin misiniz?`)) return;
+      try {
+        const res = await fetch('/api/faces/delete/' + encodeURIComponent(name), { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok && data.success) refreshPeople();
+        else alert('Hata: ' + (data.error || 'Silme başarısız'));
+      } catch (err) { alert('Sunucu hatası: ' + err.message); }
+    });
+
+    document.getElementById('peopleReloadBtn').addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await fetch('/api/faces/reload', { method: 'POST' });
+        refreshPeople();
+      } catch {}
+    });
+
+    setInterval(() => {
+      if (panes['faces-mgmt'].style.display !== 'none') {
+        refreshSearchStatus();
+        refreshMgmtLastUnknown();
+      }
+    }, 2500);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AYARLAR SEKMESİ — runtime config + kamera RTSP tablosu + log dosyaları
+    // ═══════════════════════════════════════════════════════════════════════
+    async function refreshRuntime() {
+      try {
+        const r = await api('/api/settings/runtime');
+        document.getElementById('settThreshold').value = r.threshold;
+        document.getElementById('settThresholdRange').value = r.threshold;
+        document.getElementById('settFps').value = r.inference_fps;
+        document.getElementById('settCooldown').value = r.snapshot_cooldown;
+        document.getElementById('settPatrolScan').value = r.patrol_scan_seconds;
+        document.getElementById('settPatrolHold').value = r.patrol_hold_seconds;
+      } catch {}
+    }
+    // Range ↔ Number sync
+    document.getElementById('settThresholdRange').addEventListener('input', (e) => {
+      document.getElementById('settThreshold').value = e.target.value;
+    });
+    document.getElementById('settThreshold').addEventListener('input', (e) => {
+      document.getElementById('settThresholdRange').value = e.target.value;
+    });
+
+    document.getElementById('settRuntimeSaveBtn').addEventListener('click', async () => {
+      const msg = document.getElementById('settRuntimeMsg');
+      const payload = {
+        threshold: parseFloat(document.getElementById('settThreshold').value),
+        inference_fps: parseInt(document.getElementById('settFps').value, 10),
+        snapshot_cooldown: parseInt(document.getElementById('settCooldown').value, 10),
+        patrol_scan_seconds: parseInt(document.getElementById('settPatrolScan').value, 10),
+        patrol_hold_seconds: parseInt(document.getElementById('settPatrolHold').value, 10),
+      };
+      try {
+        const res = await fetch('/api/settings/runtime', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          msg.className = 'wl-msg wl-msg-ok';
+          msg.textContent = `Güncellendi: ${Object.keys(data.updated).join(', ')}`;
+        } else {
+          msg.className = 'wl-msg wl-msg-err';
+          msg.textContent = data.error || 'Bilinmeyen hata';
+        }
+        msg.style.display = '';
+        setTimeout(() => { msg.style.display = 'none'; }, 4000);
+      } catch (err) {
+        msg.className = 'wl-msg wl-msg-err';
+        msg.textContent = 'Sunucu hatası: ' + err.message;
+        msg.style.display = '';
+      }
+    });
+
+    // Kamera tablosu
+    let _camCache = [];
+    async function refreshCamTable() {
+      try {
+        const r = await api('/api/settings/cameras');
+        _camCache = r.cameras || [];
+        const startup = r.startup_id;
+        const tbody = document.getElementById('camTableBody');
+        if (!_camCache.length) { tbody.innerHTML = '<tr><td colspan="6" class="det-empty">Yok</td></tr>'; return; }
+        tbody.innerHTML = _camCache.map(c => `
+          <tr data-cam-id="${c.id}">
+            <td class="cam-cell-id">${c.id}${c.is_active ? ' <span class="cam-active-mini" title="Aktif">●</span>' : ''}</td>
+            <td class="cam-cell-name">${escapeHtml(c.name)}</td>
+            <td><input type="text" class="cam-url-input field" value="${escapeHtml(c.url)}" data-cam-id="${c.id}" placeholder="rtsp://..." /></td>
+            <td><input type="checkbox" class="cam-enabled-cb" data-cam-id="${c.id}" ${c.enabled ? 'checked' : ''} /></td>
+            <td><input type="radio" name="cam-startup" class="cam-startup-radio" value="${c.id}" ${(startup === c.id) ? 'checked' : ''} /></td>
+            <td><button type="button" class="cam-test-btn" data-cam-id="${c.id}">Test</button></td>
+          </tr>
+        `).join('');
+      } catch (e) { console.error('camTable', e); }
+    }
+
+    // Tümünü kaydet (.env)
+    document.getElementById('camSaveAllBtn').addEventListener('click', async () => {
+      const msg = document.getElementById('camSaveMsg');
+      const urls = {};
+      document.querySelectorAll('.cam-url-input').forEach(inp => {
+        urls[inp.dataset.camId] = inp.value.trim();
+      });
+      try {
+        const res = await fetch('/api/settings/cameras', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          msg.className = 'wl-msg wl-msg-ok';
+          msg.textContent = `${data.count} kamera URL'si .env'e yazıldı.`;
+          refreshCamTable();
+        } else {
+          msg.className = 'wl-msg wl-msg-err';
+          msg.textContent = data.error || 'Bilinmeyen hata';
+        }
+        msg.style.display = '';
+        setTimeout(() => { msg.style.display = 'none'; }, 5000);
+      } catch (err) {
+        msg.className = 'wl-msg wl-msg-err';
+        msg.textContent = 'Sunucu hatası: ' + err.message;
+        msg.style.display = '';
+      }
+    });
+
+    document.getElementById('camReloadBtn').addEventListener('click', () => refreshCamTable());
+
+    // Tablo içi olaylar (Test + checkbox + radio)
+    document.getElementById('camTableBody').addEventListener('click', async (e) => {
+      const testBtn = e.target.closest('.cam-test-btn');
+      if (testBtn) {
+        const camId = testBtn.dataset.camId;
+        const input = document.querySelector(`.cam-url-input[data-cam-id="${camId}"]`);
+        const url = input ? input.value.trim() : '';
+        if (!url) { testBtn.textContent = '✗'; testBtn.className = 'cam-test-btn cam-test-fail'; return; }
+        testBtn.textContent = '..'; testBtn.className = 'cam-test-btn cam-test-wait';
+        try {
+          const res = await fetch('/api/settings/cameras/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+          });
+          const data = await res.json();
+          if (data.ok) { testBtn.textContent = '✓'; testBtn.className = 'cam-test-btn cam-test-ok'; }
+          else { testBtn.textContent = '✗'; testBtn.className = 'cam-test-btn cam-test-fail'; }
+        } catch { testBtn.textContent = '✗'; testBtn.className = 'cam-test-btn cam-test-fail'; }
+      }
+    });
+
+    document.getElementById('camTableBody').addEventListener('change', async (e) => {
+      // Etkin/pasif
+      if (e.target.classList.contains('cam-enabled-cb')) {
+        const camId = parseInt(e.target.dataset.camId, 10);
+        await fetch('/api/settings/cam_enabled', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cam_id: camId, enabled: e.target.checked }),
+        });
+      }
+      // Startup
+      if (e.target.classList.contains('cam-startup-radio')) {
+        const sid = parseInt(e.target.value, 10);
+        await fetch('/api/settings/startup_cam', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startup_id: sid }),
+        });
+      }
+    });
+
+    // Log dosyaları
+    async function refreshLogs() {
+      try {
+        const r = await api('/api/logs/files');
+        const list = (r && r.files) || [];
+        const el = document.getElementById('logsList');
+        if (!list.length) { el.innerHTML = '<li class="det-empty">Log yok</li>'; return; }
+        el.innerHTML = list.map(f => {
+          const safeName = escapeHtml(f.name);
+          const sizeK = (f.size / 1024).toFixed(1);
+          return `
+            <li class="wl-item log-item">
+              <span class="wl-plate" style="font-size:11px;">${safeName}</span>
+              <span class="wl-owner">${sizeK} KB</span>
+              <a class="log-link" href="/api/logs/download/${encodeURIComponent(safeName)}" download title="İndir">⇩</a>
+            </li>`;
+        }).join('');
+      } catch {}
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // YENİ YÜZ KAYIT MODAL — POST /api/faces/register
+    // ═══════════════════════════════════════════════════════════════════════
+    const regModal = document.getElementById('registerModal');
+    const regOpenBtn = document.getElementById('openRegisterModalBtn');
+    const regCloseBtn = document.getElementById('closeRegisterModalBtn');
+    const regCancelBtn = document.getElementById('registerCancelBtn');
+    const regSubmitBtn = document.getElementById('registerSubmitBtn');
+    const regNameInput = document.getElementById('registerNameInput');
+    const regToast = document.getElementById('registerToast');
+
+    function openRegisterModal() {
+      regModal.style.display = '';
+      regModal.setAttribute('aria-hidden', 'false');
+      regNameInput.value = '';
+      regToast.style.display = 'none';
+      regToast.textContent = '';
+      setTimeout(() => regNameInput.focus(), 50);
+    }
+    function closeRegisterModal() {
+      regModal.style.display = 'none';
+      regModal.setAttribute('aria-hidden', 'true');
+    }
+
+    // XSS koruması — sadece harf (TR dahil), rakam, boşluk. Backend de
+    // aynı sanitization'ı tekrar uygular (defansif derinlik).
+    function sanitizeName(input) {
+      return (input || '')
+        .replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 50);
+    }
+
+    function showRegToast(kind, msg) {
+      regToast.textContent = msg;
+      regToast.className = 'modal-toast modal-toast-' + kind;
+      regToast.style.display = '';
+    }
+
+    regOpenBtn.addEventListener('click', openRegisterModal);
+    regCloseBtn.addEventListener('click', closeRegisterModal);
+    regCancelBtn.addEventListener('click', closeRegisterModal);
+    regModal.addEventListener('click', (e) => {
+      // overlay'e (kart dışı) tıklayınca kapat
+      if (e.target === regModal) closeRegisterModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && regModal.style.display !== 'none') closeRegisterModal();
+    });
+
+    // Input'a yazılırken canlı sanitize (kullanıcı yazdığını görsün ama
+    // geçersiz karakter girilemesin)
+    regNameInput.addEventListener('input', (e) => {
+      const clean = sanitizeName(e.target.value);
+      if (clean !== e.target.value) e.target.value = clean;
+    });
+
+    regNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        regSubmitBtn.click();
+      }
+    });
+
+    regSubmitBtn.addEventListener('click', async () => {
+      const name = sanitizeName(regNameInput.value);
+      if (!name) {
+        showRegToast('err', 'Lütfen bir isim girin (en az 1 karakter).');
+        regNameInput.focus();
+        return;
+      }
+      regSubmitBtn.disabled = true;
+      regSubmitBtn.textContent = '⏳ Kayıt yapılıyor...';
+      showRegToast('info', 'Frame yakalanıyor ve InsightFace ile analiz ediliyor...');
+
+      try {
+        const res = await fetch('/api/faces/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          showRegToast(
+            'ok',
+            `✅ ${data.name} kaydedildi. Toplam embedding: ${data.embeddings_total}`
+          );
+          // Mevcut kişi listesi sekmesi açıksa onu da yenile
+          if (typeof refreshPeople === 'function') {
+            setTimeout(refreshPeople, 200);
+          }
+          setTimeout(closeRegisterModal, 1800);
+        } else {
+          // Backend'den gelen hata mesajı (face_count vb. ek bilgi varsa)
+          let msg = data.error || `Hata (${res.status})`;
+          if (data.face_count) msg += ` [Tespit: ${data.face_count}]`;
+          showRegToast('err', '❌ ' + msg);
+        }
+      } catch (err) {
+        showRegToast('err', '❌ Sunucu hatası: ' + err.message);
+      } finally {
+        regSubmitBtn.disabled = false;
+        regSubmitBtn.textContent = '📷 Kameradan Çek ve Kaydet';
+      }
+    });
+  </script>
+</body>
+</html>

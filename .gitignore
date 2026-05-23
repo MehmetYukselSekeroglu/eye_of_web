@@ -7,3 +7,58 @@ backups/
 .insightface_cache
 temp/
 logs/
+
+# ── Secrets / credentials (asla commit edilmez) ────────────────────────────
+.env
+.env.bak
+.env.tmp
+*.env.local
+*cookies.pkl
+auth_config.json
+config/config.json
+
+# ── Virtualenv / Node deps ────────────────────────────────────────────────
+WorkEnv/
+.venv/
+venv/
+node_modules/
+
+# ── Runtime data (PII riskli + binary) ────────────────────────────────────
+src/downloaded_profile_pics/
+güncellemeler/face_security_v3/snapshots/
+güncellemeler/face_security_v3/unknown_plates/
+güncellemeler/face_security_v3/models/
+güncellemeler/face_security_v3/database/*.jpg
+güncellemeler/face_security_v3/database/*.png
+güncellemeler/face_security_v3/database/*.jpeg
+güncellemeler/face_security_v3/embeddings_cache.pkl
+güncellemeler/insta_bot/cookies.pkl
+güncellemeler/insta_bot/accounts.txt
+güncellemeler/insta_bot/hedefler.txt
+güncellemeler/insta_bot/takipciler*.txt
+güncellemeler/insta_bot/profil_fotolari/
+güncellemeler/insta_bot/stats.json
+güncellemeler/insta_bot/accounts.json
+
+# ── Debug çıktıları ───────────────────────────────────────────────────────
+debug_google_0_results_*.png
+debug_google_0_results_*.html
+debug_google_search_exception_*.png
+debug_google_search_exception_*.html
+
+# ── Vite build artifacts ──────────────────────────────────────────────────
+güncellemeler/yeni_dashboard/dist/
+
+# ── Kullanıcı yerel listeleri (eski toplama datasetleri) ──────────────────
+src/dosya.txt
+src/liste.txt
+src/facebook.txt
+src/example_namelist.txt
+src/twitter_usernames.txt
+İsimsiz Belge
+
+# ── IDE / Editor ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.pytest_cache/
+.backup_*/

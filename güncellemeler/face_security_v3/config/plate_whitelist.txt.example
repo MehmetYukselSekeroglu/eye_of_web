@@ -1,0 +1,26 @@
+# Plaka Beyaz Listesi
+#
+# Bu dosyaya bilinen plakaları (aile, tanıdıklar) ekleyin.
+# Sistem bu plakaları fuzzy match ile tanıyacak — OCR hataları
+# (örn. N↔M karışıklığı) tolere edilir (2 karakter mesafeye kadar).
+#
+# Format:
+#   PLAKA   # opsiyonel yorum
+#
+# Plaka formatı:
+# - Boşluksuz, tek string (örn. 34NNF012, "34 NNF 012" DEĞİL)
+# - Büyük/küçük harf önemli değil
+# - Türk plaka standardı: şehir kodu (2 rakam) + 1-3 harf + 1-4 rakam
+#
+# # ile başlayan satırlar veya satır sonlarındaki # sonrası yorumdur
+# Boş satırlar atlanır
+#
+# Bu dosyayı kopyalayıp 'plate_whitelist.txt' olarak kaydedin.
+# Örnek girdiler (kendi plakanızla değiştirin):
+
+# Aile araçları
+34ABC123    # Benim
+06XYZ456    # Eşim
+
+# Tanıdıklar
+07DEF789    # Komşu

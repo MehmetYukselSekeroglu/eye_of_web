@@ -1,8 +1,8 @@
 import argparse
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 import time
-import duckduckgo_search
-import duckduckgo_search.exceptions
+import ddgs
+import ddgs.exceptions
 
 parser = argparse.ArgumentParser(description='Dump Twitter usernames from a web page')
 parser.add_argument('--namelist', type=str, help='The name list file',required=True)
@@ -32,8 +32,7 @@ for name in NAME_LIST:
                             f.write(r['href'] + '\n')
                             print(f"Writing {r['href']} to file")
                             WRITE_LIST.add(r['href'])
-            time.sleep(120)
-        except duckduckgo_search.exceptions.DuckDuckGoSearchException as e:
+        except ddgs.exceptions.DuckDuckGoSearchException as e:
             print(f"Error searching for {name}: {e}")
             print(f"Sleeping for 120 seconds")
             time.sleep(120)

@@ -342,7 +342,7 @@ class RealtimeSearchApp(QMainWindow):
         self.max_results = 5
         self.search_interval = 1.0  # Search every 1 second
         self.last_search_time = 0
-        self.camera_id = 0
+        self.camera_id = "rtsp://admin:admin123456@192.168.1.102:554/Streaming/Channels/101"
         self.current_result_index = -1  # Currently selected result index
 
         # Multi-face detection state

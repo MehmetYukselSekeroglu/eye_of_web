@@ -54,37 +54,100 @@ class GoogleOrganicSearch:
             raise e
 
     def _accept_cookies(self):
-        """Attempts to accept Google's cookie consent dialog."""
+        """
+        Google'ın çerez/onay diyalogunu kapatır. Birden çok dil + varyant +
+        ID-based fallback ile try-except sarmalanmıştır; hiçbir uyarı UI'ı
+        yokken çağrılırsa sessizce False döner.
+        """
         try:
             human_delay(1, 2)
-            # Try multiple selectors for different languages/regions
             selectors = [
-                "//button[contains(., 'Accept all')]",
+                # Klasik Google "Accept all" ID
+                "//button[@id='L2AGLb']",
+                "//div[@id='L2AGLb']",
+                # ID/aria-label tabanlı
+                "//button[@aria-label='Accept all']",
+                "//button[@aria-label='Tümünü kabul et']",
+                "//button[@aria-label='Kabul et']",
+                # Metin tabanlı — Türkçe + İngilizce + büyük/küçük harf
+                "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accept all')]",
+                "//button[contains(., 'Tümünü Kabul Et')]",
                 "//button[contains(., 'Tümünü kabul et')]",
-                "//button[contains(., 'Accept')]",
-                "//button[contains(., 'Kabul')]",
+                "//button[contains(., 'Kabul Et')]",
+                "//button[contains(., 'Kabul et')]",
                 "//button[contains(., 'I agree')]",
-                "//button[@id='L2AGLb']",  # Common Google consent button ID
-                "//div[@role='none']//button[1]",  # First button in consent dialog
+                "//button[contains(., 'Agree')]",
+                # "Reject all" da banner'ı kapatır
+                "//button[contains(., 'Reject all')]",
+                "//button[contains(., 'Tümünü reddet')]",
+                "//button[contains(., 'Sadece gerekli')]",
+                # role-based / generic
+                "//div[@role='dialog']//button[1]",
+                "//div[@role='none']//button[1]",
+                "//form[contains(@action, 'consent')]//button",
             ]
             for selector in selectors:
                 try:
                     buttons = self.driver.find_elements(By.XPATH, selector)
                     if buttons:
-                        # Use ActionChains for more human-like click
                         actions = ActionChains(self.driver)
                         actions.move_to_element(buttons[0])
                         human_delay(0.3, 0.7)
                         actions.click()
                         actions.perform()
-                        p_log("Cookie consent accepted.")
+                        p_log(f"Cookie consent dismissed via: {selector}")
                         human_delay(0.5, 1)
                         return True
-                except:
+                except Exception:
                     continue
+            # iframe fallback (eski consent.google.com akışı)
+            try:
+                iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
+                for iframe in iframes:
+                    src = (iframe.get_attribute("src") or "").lower()
+                    if "consent" in src:
+                        try:
+                            self.driver.switch_to.frame(iframe)
+                            for selector in selectors:
+                                try:
+                                    btns = self.driver.find_elements(By.XPATH, selector)
+                                    if btns:
+                                        btns[0].click()
+                                        p_log("Cookie consent dismissed in iframe.")
+                                        self.driver.switch_to.default_content()
+                                        return True
+                                except Exception:
+                                    continue
+                        finally:
+                            self.driver.switch_to.default_content()
+            except Exception:
+                pass
         except Exception as e:
             p_log(f"No cookie consent found or error: {e}")
         return False
+
+    def _debug_screenshot(self, tag: str = "google_0_results"):
+        """0-sonuç/hata teşhisi için ekran görüntüsü ve sayfa HTML'i kaydet."""
+        try:
+            import datetime
+            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            png_path = f"debug_{tag}_{ts}.png"
+            html_path = f"debug_{tag}_{ts}.html"
+            try:
+                self.driver.save_screenshot(png_path)
+            except Exception:
+                pass
+            try:
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(self.driver.page_source or "")
+            except Exception:
+                pass
+            p_warn(
+                f"DEBUG: Ekran görüntüsü '{png_path}' ve sayfa HTML'i "
+                f"'{html_path}' olarak kaydedildi. Çerez/captcha kontrolü için inceleyin."
+            )
+        except Exception as e:
+            p_warn(f"Debug screenshot alınamadı: {e}")
 
     def _scroll_like_human(self):
         """Scrolls the page in a human-like manner."""
@@ -301,7 +364,18 @@ class GoogleOrganicSearch:
 
         except Exception as e:
             p_error(f"Error during search: {e}")
+            # Hata anında da bir screenshot al (captcha / consent / network).
+            try:
+                self._debug_screenshot("google_search_exception")
+            except Exception:
+                pass
         finally:
+            # Kapanmadan ÖNCE: 0 sonuç varsa debug snapshot al.
+            try:
+                if len(results) == 0 and self.driver is not None:
+                    self._debug_screenshot("google_0_results")
+            except Exception:
+                pass
             self.close()
 
         p_info(f"Step 6: Search completed. Total unique URLs found: {len(results)}")

@@ -1,0 +1,15 @@
+insightface>=0.7.3
+opencv-python>=4.8.0
+numpy>=1.24.0
+Pillow>=10.0.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+onnxruntime>=1.16.0
+easyocr>=1.7.0
+ultralytics>=8.0.0
+# GPU desteği için (NVIDIA GPU varsa aşağıdakini etkinleştirin):
+# onnxruntime-gpu>=1.16.0
+bcrypt>=4.0.0,<6.0.0
+
+# Web App (Tkinter UI iptal edildi → Flask web sunucusu, port 5007)
+Flask>=3.0.0
